@@ -1,0 +1,27 @@
+{
+  "summary": "Verified the QR-scan/Android freeze fix on JARVIS Expo app via web preview. All three critical timing scenarios pass: (1) normal load — splash logo/tagline appear at ~0.75s and splash finishes at 5.69s (under 6s hard cap), home 'SU COSA VUOI ESSERE AGGIORNATO?' visible immediately after; (2) simulated font-load failure by aborting all .ttf requests (Inter-Regular/Medium/Bold/ExtraBold + MaterialIcons) — app still rendered splash at 0.64s and home at 0.66s, no white-screen hang; (3) three consecutive reloads all completed in <1s with home visible each time. IMMOBILI category navigation works (routes to /category/immobili and shows the search form). Backend non-regression: POST /api/search/process with {query:'casa Roma',category:'immobili',language:'it'} returned HTTP 200 with valid AI summary/keywords JSON (9.05s — LLM latency, expected). testIDs 'splash-logo', 'splash-tagline', 'animated-splash' are all present in the DOM as expected. The safety timeout logic (3s font fallback + 6s hard splash fallback + interError destructuring + SplashScreen.hideAsync().catch) is correctly implemented in _layout.tsx and AnimatedSplash.tsx.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_2.json"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "_layout.tsx line 46: interReady logic correctly uses OR of (loaded || error || timedOut) — matches the described fix.",
+    "AnimatedSplash.tsx uses finishedRef guard + 6s hardFallback setTimeout — good defense against JS-timer pause when Android backgrounds the app.",
+    "Non-blocking observation (not part of this fix): browser console shows benign warnings — 'shadow* deprecated', 'pointerEvents prop deprecated', 'useNativeDriver not supported on web' (expected), and 'element.ref removed in React 19' (RN Web/React 19 compat noise). None affect functionality."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Frontend URL from frontend/.env is https://jarvis-assistant-603.preview.emergentagent.com (the URL in the original review_request differs but this is the source-of-truth from EXPO_PACKAGER_PROXY_URL/EXPO_PUBLIC_BACKEND_URL). Splash testIDs: 'animated-splash' (container), 'splash-logo' (JARVIS text), 'splash-tagline' (assistente digitale). Splash duration ~5.7s on normal path, hard-capped at 6s. When simulating font failure on web via page.route abort of *.ttf, home still renders — this validates the fallback path indirectly (real Android font resolution failure cannot be simulated on web, but the code path is identical).",
+  "rca_of_issue": "Original bug: on Android Expo Go, if useFonts()'s Inter TTF load stalled/failed, the code destructured only [interLoaded] and returned null from RootLayout forever → permanent white screen after QR scan. Fix (verified present in code): destructure [interLoaded, interError], add 3s timedOut fallback, hard 6s fallback in AnimatedSplash via finishedRef+setTimeout(safeFinish,6000), inline Platform.select font-family with system fallback, and .catch on SplashScreen.hideAsync. All safety nets are in place and produce the expected behavior on web."
+}

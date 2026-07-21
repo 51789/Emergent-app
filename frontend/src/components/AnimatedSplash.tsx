@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, Animated, Easing, Platform } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -9,8 +9,22 @@ interface AnimatedSplashProps {
 
 type Phase = 'logo' | 'tagline' | 'done';
 
+// Font family with system fallback in case Inter didn't load
+const FONT_BOLD = Platform.select({
+  ios: 'Inter-ExtraBold',
+  android: 'Inter-ExtraBold',
+  default: 'Inter-ExtraBold, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+});
+
+const FONT_MEDIUM = Platform.select({
+  ios: 'Inter-Medium',
+  android: 'Inter-Medium',
+  default: 'Inter-Medium, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+});
+
 export const AnimatedSplash: React.FC<AnimatedSplashProps> = ({ onFinish }) => {
   const [phase, setPhase] = useState<Phase>('logo');
+  const finishedRef = useRef(false);
 
   // Logo animation values
   const logoOpacity = useRef(new Animated.Value(0)).current;
@@ -20,6 +34,13 @@ export const AnimatedSplash: React.FC<AnimatedSplashProps> = ({ onFinish }) => {
   // Tagline animation values
   const taglineTranslateX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
   const taglineOpacity = useRef(new Animated.Value(0)).current;
+
+  const safeFinish = () => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    setPhase('done');
+    onFinish();
+  };
 
   useEffect(() => {
     // ===== PHASE 1: LOGO IN =====
@@ -108,15 +129,23 @@ export const AnimatedSplash: React.FC<AnimatedSplashProps> = ({ onFinish }) => {
           useNativeDriver: true,
         }),
       ]).start(() => {
-        setPhase('done');
-        onFinish();
+        safeFinish();
       });
     }, 4200);
+
+    // ===== HARD SAFETY FALLBACK =====
+    // If for any reason animations don't fire their callbacks (e.g. component
+    // is backgrounded on Android and JS timers pause), always exit the splash
+    // by 6 seconds so the user is never stuck on a blank screen.
+    const hardFallback = setTimeout(() => {
+      safeFinish();
+    }, 6000);
 
     return () => {
       clearTimeout(logoOutTimer);
       clearTimeout(taglineInTimer);
       clearTimeout(finishTimer);
+      clearTimeout(hardFallback);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -135,7 +164,7 @@ export const AnimatedSplash: React.FC<AnimatedSplashProps> = ({ onFinish }) => {
           },
         ]}
       >
-        <Text style={styles.logo} testID="splash-logo">
+        <Text style={[styles.logo, { fontFamily: FONT_BOLD }]} testID="splash-logo">
           JARVIS
         </Text>
         <Animated.View
@@ -153,7 +182,7 @@ export const AnimatedSplash: React.FC<AnimatedSplashProps> = ({ onFinish }) => {
           },
         ]}
       >
-        <Text style={styles.tagline} testID="splash-tagline">
+        <Text style={[styles.tagline, { fontFamily: FONT_MEDIUM }]} testID="splash-tagline">
           il tuo assistente digitale a portata di click
         </Text>
       </Animated.View>
@@ -175,7 +204,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logo: {
-    fontFamily: 'Inter-ExtraBold',
     fontSize: 64,
     fontWeight: '800',
     letterSpacing: 4,
@@ -197,7 +225,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tagline: {
-    fontFamily: 'Inter-Medium',
     fontSize: 18,
     fontWeight: '500',
     color: '#333',

@@ -21,23 +21,40 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [iconsLoaded, iconsError] = useIconFonts();
-  const [interLoaded] = useFonts({
+  const [interLoaded, interError] = useFonts({
     'Inter-Regular': require('../assets/fonts/Inter-Regular.ttf'),
     'Inter-Medium': require('../assets/fonts/Inter-Medium.ttf'),
     'Inter-Bold': require('../assets/fonts/Inter-Bold.ttf'),
     'Inter-ExtraBold': require('../assets/fonts/Inter-ExtraBold.ttf'),
   });
   const [showSplash, setShowSplash] = useState(true);
+  const [timedOut, setTimedOut] = useState(false);
 
-  const fontsReady = (iconsLoaded || iconsError) && interLoaded;
+  // Safety timeout: proceed after 3s even if fonts didn't finish loading.
+  // This prevents the app from hanging indefinitely on Android Expo Go if
+  // font resolution stalls. Fonts fall back to system defaults in that case.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setTimedOut(true);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Proceed when: fonts loaded, OR font loading errored, OR timeout expired.
+  // Any of these means we should show the app rather than a blank null.
+  const iconsReady = iconsLoaded || iconsError;
+  const interReady = interLoaded || interError || timedOut;
+  const canRender = iconsReady && interReady;
 
   useEffect(() => {
-    if (fontsReady) {
-      SplashScreen.hideAsync();
+    if (canRender) {
+      SplashScreen.hideAsync().catch(() => {
+        // ignore — splash may already be hidden
+      });
     }
-  }, [fontsReady]);
+  }, [canRender]);
 
-  if (!fontsReady) return null;
+  if (!canRender) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
