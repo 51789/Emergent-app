@@ -7,6 +7,7 @@ import {
   StyleSheet,
   SafeAreaView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -18,9 +19,10 @@ import { SearchResult } from '../src/types';
 
 export default function ResultsScreen() {
   const { searchId } = useLocalSearchParams<{ searchId: string }>();
-  const { language } = useAppStore();
+  const { language, removeActiveSearch } = useAppStore();
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
   const t = TRANSLATIONS[language];
 
   useEffect(() => {
@@ -41,6 +43,45 @@ export default function ResultsScreen() {
     }
   };
 
+  const handleDelete = () => {
+    if (!searchId) return;
+
+    Alert.alert(
+      language === 'it' ? 'Elimina Ricerca' : 'Delete Search',
+      language === 'it'
+        ? 'Sei sicuro di voler eliminare questa ricerca e tutti i suoi risultati?'
+        : 'Are you sure you want to delete this search and all its results?',
+      [
+        {
+          text: language === 'it' ? 'Annulla' : 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: language === 'it' ? 'Elimina' : 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setDeleting(true);
+              await api.deleteSearch(searchId);
+              removeActiveSearch(searchId);
+              router.back();
+            } catch (error) {
+              console.error('Error deleting search:', error);
+              Alert.alert(
+                language === 'it' ? 'Errore' : 'Error',
+                language === 'it'
+                  ? 'Impossibile eliminare la ricerca.'
+                  : 'Failed to delete search.'
+              );
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -48,11 +89,23 @@ export default function ResultsScreen() {
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
+          testID="back-button"
         >
           <MaterialIcons name="arrow-back" size={28} color="#333" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t.results}</Text>
-        <View style={styles.placeholder} />
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={handleDelete}
+          disabled={deleting || loading}
+          testID="delete-search-button"
+        >
+          {deleting ? (
+            <ActivityIndicator size="small" color="#FF3B30" />
+          ) : (
+            <MaterialIcons name="delete-outline" size={26} color="#FF3B30" />
+          )}
+        </TouchableOpacity>
       </View>
 
       {loading ? (
@@ -103,6 +156,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#333',
+  },
+  deleteButton: {
+    padding: 8,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   placeholder: {
     width: 44,

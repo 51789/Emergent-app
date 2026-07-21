@@ -268,52 +268,116 @@ def get_agent_for_category(category: str) -> SpecializedAgent:
     return agent_class()
 
 
-# ==================== MOCK SEARCH RESULTS ====================
-def get_mock_results(query: str, category: str) -> List[Dict[str, Any]]:
-    """Generate mock search results until real Serper API is configured"""
-    mock_data = {
-        "immobili": [
-            {
-                "title": "Bilocale Zona San Paolo - Torino",
-                "snippet": "Appartamento ristrutturato, 2 locali, zona San Paolo. Vicino metro. €120.000",
-                "link": "https://www.immobiliare.it/example1",
-                "contacts": ["info@immobiliare.it", "+39 011 123456"]
-            },
-            {
-                "title": "Appartamento 2 Camere - Porta Susa",
-                "snippet": "Bilocale arredato, recentemente ristrutturato. Metro a 5 minuti. €135.000",
-                "link": "https://www.casa.it/example2",
-                "contacts": ["agenzia@casa.it", "+39 011 654321"]
-            }
-        ],
-        "auto_moto": [
-            {
-                "title": "Fiat 500 - 2020",
-                "snippet": "Fiat 500 usata, ottime condizioni, 30.000 km. €12.000",
-                "link": "https://www.autoscout24.it/example1",
-                "contacts": ["vendite@auto.it", "+39 333 111222"]
-            }
-        ],
-        "lavoro": [
-            {
-                "title": "Sviluppatore Software - Torino",
-                "snippet": "Azienda cerca sviluppatore full-stack. Contratto indeterminato.",
-                "link": "https://www.linkedin.com/jobs/example",
-                "contacts": ["hr@azienda.it"]
-            }
-        ]
+# ==================== AI-POWERED RESULT GENERATION ====================
+async def generate_ai_results(query: str, category: str, language: str = "it") -> List[Dict[str, Any]]:
+    """Use LLM to generate contextually relevant mock results based on the user's actual query.
+    
+    This function uses AI to create realistic search results that reflect the user's
+    specific request (location, price, features, etc.) instead of returning hardcoded data.
+    """
+    category_context = {
+        "immobili": "annunci immobiliari (case, appartamenti in vendita/affitto)",
+        "auto_moto": "annunci di veicoli (auto, moto usate/nuove)",
+        "divertimento": "eventi, spettacoli, attività ricreative",
+        "nuove_leggi": "nuove leggi e normative italiane",
+        "bandi": "bandi di concorso pubblici",
+        "gare_appalto": "gare d'appalto pubbliche",
+        "finanza": "opportunità di investimento e finanza",
+        "lavoro": "offerte di lavoro e posizioni aperte",
     }
     
-    default_results = [
+    source_examples = {
+        "immobili": "immobiliare.it, casa.it, idealista.it, subito.it",
+        "auto_moto": "autoscout24.it, subito.it, automobile.it",
+        "divertimento": "ticketone.it, mailticket.it, boxol.it",
+        "nuove_leggi": "gazzettaufficiale.it, normattiva.it",
+        "bandi": "concorsipubblici.com, gazzettaufficiale.it",
+        "gare_appalto": "acquistinretepa.it, mit.gov.it",
+        "finanza": "borsaitaliana.it, milanofinanza.it",
+        "lavoro": "linkedin.com/jobs, indeed.it, infojobs.it",
+    }
+    
+    context = category_context.get(category, "informazioni generiche")
+    sources = source_examples.get(category, "vari siti web")
+    
+    prompt = f"""Sei un motore di ricerca specializzato in {context}.
+
+RICHIESTA DELL'UTENTE: "{query}"
+
+Devi generare 3-4 risultati di ricerca REALISTICI che rispettino ESATTAMENTE i criteri dell'utente:
+- La LOCALITÀ deve essere ESATTAMENTE quella richiesta dall'utente (se ha detto Alcamo, i risultati devono essere ad Alcamo, NON a Torino o altre città)
+- Il PREZZO/BUDGET deve rientrare nel range indicato
+- Le CARATTERISTICHE (tipologia, superficie, ecc.) devono corrispondere
+- I dettagli devono essere plausibili e realistici per la zona indicata
+
+Fonti tipiche: {sources}
+
+Restituisci SOLO un JSON valido con questo formato ESATTO (nessun altro testo):
+{{
+  "results": [
+    {{
+      "title": "Titolo dell'annuncio (specifico per la località richiesta)",
+      "snippet": "Descrizione dettagliata dell'annuncio con dettagli plausibili per la zona",
+      "link": "https://sito-realistico.it/annuncio-specifico",
+      "contacts": ["email@esempio.it", "+39 XXX XXXXXXX"]
+    }}
+  ]
+}}
+
+IMPORTANTE: 
+- I risultati DEVONO riflettere la località, prezzo e caratteristiche richieste dall'utente
+- Se l'utente cerca ad Alcamo, TUTTI i risultati devono essere ad Alcamo (Sicilia)
+- Genera prefissi telefonici corretti per la zona (091 per Palermo/Alcamo, 011 per Torino, 02 per Milano, ecc.)
+- I nomi delle agenzie/aziende devono essere plausibili per la zona
+"""
+    
+    try:
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"results-gen-{str(uuid.uuid4())}",
+            system_message="Sei un motore di ricerca AI che genera risultati contestualizzati e realistici."
+        ).with_model("openai", "gpt-5.4-mini")
+        
+        response_text = ""
+        async for event in chat.stream_message(UserMessage(text=prompt)):
+            if isinstance(event, TextDelta):
+                response_text += event.content
+            elif isinstance(event, StreamDone):
+                break
+        
+        # Parse JSON response
+        start = response_text.find('{')
+        end = response_text.rfind('}') + 1
+        if start >= 0 and end > start:
+            data = json.loads(response_text[start:end])
+            results = data.get("results", [])
+            if results:
+                return results
+    except Exception as e:
+        logging.error(f"AI result generation failed: {str(e)}")
+    
+    # Ultimate fallback: use query in the result so it's at least contextual
+    return [
         {
-            "title": f"Risultato per: {query[:50]}",
-            "snippet": "Questo è un risultato di esempio. Configura la chiave API Serper per risultati reali.",
+            "title": f"Ricerca in corso per: {query[:80]}",
+            "snippet": f"Configura la chiave API Serper per ottenere risultati reali dal web che corrispondono a: {query[:150]}",
             "link": "https://serper.dev",
-            "contacts": ["info@example.com"]
+            "contacts": []
         }
     ]
-    
-    return mock_data.get(category, default_results)
+
+
+# ==================== MOCK SEARCH RESULTS (Legacy fallback) ====================
+def get_mock_results(query: str, category: str) -> List[Dict[str, Any]]:
+    """Legacy fallback - returns a single query-aware placeholder"""
+    return [
+        {
+            "title": f"Risultato per: {query[:80]}",
+            "snippet": f"Per ottenere risultati reali che corrispondano alla tua ricerca, configura la chiave API Serper. Query: {query[:200]}",
+            "link": "https://serper.dev",
+            "contacts": []
+        }
+    ]
 
 
 # ==================== API ENDPOINTS ====================
@@ -348,20 +412,21 @@ async def get_search(search_id: str):
 
 @api_router.delete("/search/{search_id}")
 async def delete_search(search_id: str):
-    """Delete a search"""
-    result = await db.searches.update_one(
-        {"id": search_id},
-        {"$set": {"is_active": False}}
-    )
+    """Delete a search and all its results"""
+    # Delete the search
+    search_result = await db.searches.delete_one({"id": search_id})
     
-    if result.modified_count == 0:
+    if search_result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Search not found")
     
-    return {"message": "Search deleted successfully"}
+    # Also delete all results for this search
+    await db.results.delete_many({"search_id": search_id})
+    
+    return {"message": "Search and results deleted successfully", "search_id": search_id}
 
 @api_router.post("/search/process")
 async def process_search_query(input: SearchQueryCreate):
-    """Process a search query with specialized agent"""
+    """Process a search query with specialized agent and generate context-aware results"""
     try:
         # Get the appropriate agent for the category
         agent = get_agent_for_category(input.category)
@@ -370,12 +435,15 @@ async def process_search_query(input: SearchQueryCreate):
         try:
             agent_result = await agent.process_query(input.query, input.language)
         except Exception as llm_error:
-            logging.warning(f"LLM processing failed, using fallback: {str(llm_error)}")
-            # Use fallback extraction
+            logging.warning(f"LLM agent processing failed, using fallback: {str(llm_error)}")
             agent_result = agent._fallback_extraction(input.query, input.language)
         
-        # Get mock results (will be replaced with real Serper API)
-        mock_results = get_mock_results(input.query, input.category)
+        # Generate context-aware results using AI (based on user's actual query)
+        try:
+            search_results = await generate_ai_results(input.query, input.category, input.language)
+        except Exception as gen_error:
+            logging.warning(f"AI result generation failed, using fallback: {str(gen_error)}")
+            search_results = get_mock_results(input.query, input.category)
         
         # Save search query
         search_obj = SearchQuery(**input.dict())
@@ -383,7 +451,7 @@ async def process_search_query(input: SearchQueryCreate):
         
         # Save results
         saved_results = []
-        for result in mock_results:
+        for result in search_results:
             search_result = SearchResult(
                 search_id=search_obj.id,
                 title=result.get("title", ""),
@@ -401,7 +469,7 @@ async def process_search_query(input: SearchQueryCreate):
             "summary": agent_result.get("summary", ""),
             "keywords": agent_result.get("keywords", []),
             "results": saved_results,
-            "note": "Using mock data. Add Serper API key for real results."
+            "note": "AI-generated context-aware results. Add Serper API key for real web results."
         }
         
     except Exception as e:

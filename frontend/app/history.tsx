@@ -129,6 +129,7 @@ export default function HistoryScreen() {
                   </View>
                   <TouchableOpacity
                     onPress={() => handleDeleteSearch(search.id)}
+                    testID={`delete-search-${search.id}`}
                   >
                     <MaterialIcons name="delete" size={24} color="#FF3B30" />
                   </TouchableOpacity>
