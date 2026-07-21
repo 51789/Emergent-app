@@ -83,18 +83,23 @@ class SpecializedAgent:
     
     async def process_query(self, query: str, language: str = "it") -> Dict[str, Any]:
         """Process user query and return structured response"""
-        prompt = self._create_prompt(query, language)
-        
-        response_text = ""
-        user_message = UserMessage(text=prompt)
-        
-        async for event in self.chat.stream_message(user_message):
-            if isinstance(event, TextDelta):
-                response_text += event.content
-            elif isinstance(event, StreamDone):
-                break
-        
-        return self._parse_response(response_text)
+        try:
+            prompt = self._create_prompt(query, language)
+            
+            response_text = ""
+            user_message = UserMessage(text=prompt)
+            
+            async for event in self.chat.stream_message(user_message):
+                if isinstance(event, TextDelta):
+                    response_text += event.content
+                elif isinstance(event, StreamDone):
+                    break
+            
+            return self._parse_response(response_text)
+        except Exception as e:
+            logging.error(f"LLM processing error: {str(e)}")
+            # Fallback to basic extraction if LLM fails
+            return self._fallback_extraction(query, language)
     
     def _create_prompt(self, query: str, language: str) -> str:
         """Create prompt for the agent"""
@@ -132,6 +137,20 @@ Rispondi in formato JSON con questa struttura:
             "summary": response[:200],
             "keywords": [],
             "search_suggestions": []
+        }
+    
+    def _fallback_extraction(self, query: str, language: str) -> Dict[str, Any]:
+        """Fallback keyword extraction when LLM is unavailable"""
+        # Simple keyword extraction from query
+        words = query.lower().split()
+        # Remove common words
+        common_words = {'il', 'lo', 'la', 'i', 'gli', 'le', 'un', 'una', 'di', 'da', 'a', 'in', 'su', 'per', 'con', 'tra', 'fra', 'e', 'o', 'ma', 'se', 'come', 'quando', 'dove', 'perché', 'che', 'chi', 'cui', 'quale', 'quanto', 'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by'}
+        keywords = [w for w in words if len(w) > 3 and w not in common_words][:7]
+        
+        return {
+            "summary": f"Ricerca: {query[:100]}",
+            "keywords": keywords,
+            "search_suggestions": ["Google", "Siti specializzati"]
         }
 
 
@@ -347,8 +366,13 @@ async def process_search_query(input: SearchQueryCreate):
         # Get the appropriate agent for the category
         agent = get_agent_for_category(input.category)
         
-        # Process the query with the agent
-        agent_result = await agent.process_query(input.query, input.language)
+        # Try to process with AI, fall back to basic extraction if it fails
+        try:
+            agent_result = await agent.process_query(input.query, input.language)
+        except Exception as llm_error:
+            logging.warning(f"LLM processing failed, using fallback: {str(llm_error)}")
+            # Use fallback extraction
+            agent_result = agent._fallback_extraction(input.query, input.language)
         
         # Get mock results (will be replaced with real Serper API)
         mock_results = get_mock_results(input.query, input.category)
