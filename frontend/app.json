@@ -1,0 +1,64 @@
+{
+  "expo": {
+    "name": "JARVIS",
+    "slug": "jarvis-assistant",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "jarvis",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.emergent.jarvisassistant.xidfe1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Used to scan documents for searches",
+        "NSMicrophoneUsageDescription": "Used for voice search"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#007AFF"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.emergent.jarvisassistant.xidfe1",
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "POST_NOTIFICATIONS"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-image.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#007AFF"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#007AFF"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "notification": {
+      "icon": "./assets/images/notification-icon.png",
+      "color": "#007AFF"
+    }
+  }
+}

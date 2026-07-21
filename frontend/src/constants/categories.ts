@@ -1,0 +1,51 @@
+import { Category } from '../types';
+
+export const CATEGORIES: Category[] = [
+  { id: 'immobili', label: 'IMMOBILI', icon: 'home' },
+  { id: 'bandi', label: 'BANDI DI CONCORSO', icon: 'description' },
+  { id: 'auto_moto', label: 'AUTO E MOTO', icon: 'directions-car' },
+  { id: 'gare_appalto', label: "GARE D'APPALTO", icon: 'gavel' },
+  { id: 'divertimento', label: 'DIVERTIMENTO', icon: 'celebration' },
+  { id: 'finanza', label: 'FINANZA', icon: 'trending-up' },
+  { id: 'nuove_leggi', label: 'NUOVE LEGGI', icon: 'policy' },
+  { id: 'lavoro', label: 'NUOVE RICHIESTE LAVORATIVE', icon: 'work' },
+];
+
+export const TRANSLATIONS = {
+  it: {
+    headerTitle: 'SU COSA VUOI ESSERE AGGIORNATO?',
+    settings: 'IMPOSTAZIONI',
+    userData: 'DATI UTENTE',
+    history: 'CRONOLOGIA',
+    activeSearches: 'Ricerche Attive',
+    language: 'Lingua',
+    createSearch: 'Crea Ricerca',
+    searchPlaceholder: 'Descrivi cosa stai cercando...',
+    cancel: 'Annulla',
+    submit: 'Cerca',
+    results: 'Risultati',
+    keywords: 'Parole Chiave',
+    contacts: 'Contatti',
+    viewDetails: 'Vedi Dettagli',
+    noResults: 'Nessun risultato trovato',
+    processing: 'Elaborazione in corso...',
+  },
+  en: {
+    headerTitle: 'WHAT DO YOU WANT TO BE UPDATED ABOUT?',
+    settings: 'SETTINGS',
+    userData: 'USER DATA',
+    history: 'HISTORY',
+    activeSearches: 'Active Searches',
+    language: 'Language',
+    createSearch: 'Create Search',
+    searchPlaceholder: 'Describe what you are looking for...',
+    cancel: 'Cancel',
+    submit: 'Search',
+    results: 'Results',
+    keywords: 'Keywords',
+    contacts: 'Contacts',
+    viewDetails: 'View Details',
+    noResults: 'No results found',
+    processing: 'Processing...',
+  },
+};
