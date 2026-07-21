@@ -88,13 +88,16 @@ export default function HomeScreen() {
         {/* Main Question */}
         <Text style={styles.mainQuestion}>{t.headerTitle}</Text>
 
-        {/* Category Grid — tap to open category, start a search */}
+        {/* Category Grid — tap to open category, start a search.
+            Buttons must NEVER appear selected — pressing a category simply
+            navigates to its search page, active searches are shown in the
+            "Ricerche Attive" section below. */}
         <View style={styles.categoryGrid}>
           {CATEGORIES.map((category) => (
             <View key={category.id} style={styles.categoryItem}>
               <CategoryButton
                 category={category}
-                isSelected={activeCategoryIds.includes(category.id)}
+                isSelected={false}
                 onPress={() => handleCategoryPress(category.id)}
               />
             </View>
