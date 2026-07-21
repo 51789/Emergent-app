@@ -29,6 +29,11 @@ export const TRANSLATIONS = {
     viewDetails: 'Vedi Dettagli',
     noResults: 'Nessun risultato trovato',
     processing: 'Elaborazione in corso...',
+    insertRequest: 'INSERISCI RICHIESTA',
+    keywordsTitle: 'PAROLE CHIAVE:',
+    recording: 'Registrazione in corso...',
+    voiceNotAvailable: 'Riconoscimento vocale non disponibile',
+    tapMicToStart: 'Tocca il microfono per iniziare',
   },
   en: {
     headerTitle: 'WHAT DO YOU WANT TO BE UPDATED ABOUT?',
@@ -47,5 +52,10 @@ export const TRANSLATIONS = {
     viewDetails: 'View Details',
     noResults: 'No results found',
     processing: 'Processing...',
+    insertRequest: 'INSERT REQUEST',
+    keywordsTitle: 'KEYWORDS:',
+    recording: 'Recording...',
+    voiceNotAvailable: 'Voice recognition not available',
+    tapMicToStart: 'Tap microphone to start',
   },
 };

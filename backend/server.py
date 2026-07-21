@@ -129,7 +129,7 @@ Rispondi in formato JSON con questa struttura:
             if start >= 0 and end > start:
                 json_str = response[start:end]
                 return json.loads(json_str)
-        except:
+        except (json.JSONDecodeError, ValueError):
             pass
         
         # Fallback

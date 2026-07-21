@@ -27,6 +27,15 @@ export default function HomeScreen() {
   const t = TRANSLATIONS[language];
 
   const handleCategoryPress = (categoryId: string) => {
+    // Tap navigates to the category detail page with voice search
+    router.push({
+      pathname: '/category/[categoryId]',
+      params: { categoryId },
+    });
+  };
+
+  const handleCategoryLongPress = (categoryId: string) => {
+    // Long press toggles selection for multi-category search
     toggleCategory(categoryId);
   };
 
@@ -116,10 +125,18 @@ export default function HomeScreen() {
                   category={category}
                   isSelected={selectedCategories.includes(category.id)}
                   onPress={() => handleCategoryPress(category.id)}
+                  onLongPress={() => handleCategoryLongPress(category.id)}
                 />
               </View>
             ))}
           </View>
+
+          {/* Hint text */}
+          <Text style={styles.hintText}>
+            {language === 'it'
+              ? '💡 Tocca per creare una ricerca • Tieni premuto per selezionare'
+              : '💡 Tap to create a search • Long press to select'}
+          </Text>
 
           {/* Active Searches Section */}
           <View style={styles.activeSearchesSection}>
@@ -232,6 +249,14 @@ const styles = StyleSheet.create({
   },
   categoryItem: {
     width: '48%',
+  },
+  hintText: {
+    fontSize: 12,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: -12,
+    marginBottom: 20,
+    fontStyle: 'italic',
   },
   activeSearchesSection: {
     marginBottom: 24,
