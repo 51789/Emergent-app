@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,196 +6,137 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
-  ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import BottomSheet from '@gorhom/bottom-sheet';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { CategoryButton } from '../src/components/CategoryButton';
-import { SearchBottomSheet } from '../src/components/SearchBottomSheet';
 import { useAppStore } from '../src/store';
 import { CATEGORIES, TRANSLATIONS } from '../src/constants/categories';
 import { api } from '../src/services/api';
 
 export default function HomeScreen() {
-  const { language, setLanguage, selectedCategories, toggleCategory, addActiveSearch } = useAppStore();
-  const [showActiveSearches, setShowActiveSearches] = useState(false);
-  const [processing, setProcessing] = useState(false);
-  const bottomSheetRef = useRef<BottomSheet>(null);
+  const {
+    language,
+    setLanguage,
+    activeSearches,
+    setActiveSearches,
+  } = useAppStore();
   const t = TRANSLATIONS[language];
 
+  // Load active searches so the counter reflects real data
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const searches = await api.getActiveSearches();
+        if (!cancelled) setActiveSearches(searches);
+      } catch (error) {
+        console.error('Error loading active searches:', error);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [setActiveSearches]);
+
   const handleCategoryPress = (categoryId: string) => {
-    // Tap navigates to the category detail page with voice search
+    // Tapping a category directly opens its search page.
+    // This is the ONLY way to start a search now — no more "Crea Ricerca" button.
     router.push({
       pathname: '/category/[categoryId]',
       params: { categoryId },
     });
   };
 
-  const handleCategoryLongPress = (categoryId: string) => {
-    // Long press toggles selection for multi-category search
-    toggleCategory(categoryId);
-  };
-
-  const handleCreateSearch = () => {
-    if (selectedCategories.length === 0) {
-      Alert.alert(
-        language === 'it' ? 'Seleziona una categoria' : 'Select a category',
-        language === 'it'
-          ? 'Seleziona almeno una categoria prima di creare una ricerca.'
-          : 'Select at least one category before creating a search.'
-      );
-      return;
-    }
-    bottomSheetRef.current?.expand();
-  };
-
-  const handleSearchSubmit = async (query: string, category: string) => {
-    try {
-      setProcessing(true);
-      const result = await api.processSearch(query, category, language);
-      addActiveSearch({
-        id: result.search_id,
-        query,
-        category,
-        language,
-        created_at: new Date().toISOString(),
-        is_active: true,
-      });
-      
-      // Navigate to results screen
-      router.push({
-        pathname: '/results',
-        params: { searchId: result.search_id },
-      });
-    } catch (error) {
-      console.error('Error processing search:', error);
-      Alert.alert(
-        language === 'it' ? 'Errore' : 'Error',
-        language === 'it'
-          ? 'Si è verificato un errore durante la ricerca.'
-          : 'An error occurred during the search.'
-      );
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const getSelectedCategories = () => {
-    return CATEGORIES.filter((cat) => selectedCategories.includes(cat.id));
-  };
+  // Distinct categories that currently have active searches
+  const activeCategoryIds = Array.from(
+    new Set(activeSearches.map((s) => s.category))
+  );
+  const activeCategoryLabels = activeCategoryIds
+    .map((id) => CATEGORIES.find((c) => c.id === id))
+    .filter(Boolean) as typeof CATEGORIES;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaView style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.menuButton}
-            onPress={() => router.push('/settings')}
-          >
-            <MaterialIcons name="menu" size={28} color="#333" />
-          </TouchableOpacity>
+    <SafeAreaView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.menuButton}
+          onPress={() => router.push('/settings')}
+          testID="menu-button"
+        >
+          <MaterialIcons name="menu" size={28} color="#333" />
+        </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.languageButton}
-            onPress={() => setLanguage(language === 'it' ? 'en' : 'it')}
-          >
-            <MaterialIcons name="language" size={24} color="#333" />
-            <Text style={styles.languageText}>{language.toUpperCase()}</Text>
-            <MaterialIcons name="arrow-drop-down" size={24} color="#333" />
-          </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.languageButton}
+          onPress={() => setLanguage(language === 'it' ? 'en' : 'it')}
+          testID="language-button"
+        >
+          <MaterialIcons name="language" size={24} color="#333" />
+          <Text style={styles.languageText}>{language.toUpperCase()}</Text>
+          <MaterialIcons name="arrow-drop-down" size={24} color="#333" />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Main Question */}
+        <Text style={styles.mainQuestion}>{t.headerTitle}</Text>
+
+        {/* Category Grid — tap to open category, start a search */}
+        <View style={styles.categoryGrid}>
+          {CATEGORIES.map((category) => (
+            <View key={category.id} style={styles.categoryItem}>
+              <CategoryButton
+                category={category}
+                isSelected={activeCategoryIds.includes(category.id)}
+                onPress={() => handleCategoryPress(category.id)}
+              />
+            </View>
+          ))}
         </View>
 
-        <ScrollView
-          style={styles.content}
-          contentContainerStyle={styles.contentContainer}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Main Question */}
-          <Text style={styles.mainQuestion}>{t.headerTitle}</Text>
-
-          {/* Category Grid */}
-          <View style={styles.categoryGrid}>
-            {CATEGORIES.map((category) => (
-              <View key={category.id} style={styles.categoryItem}>
-                <CategoryButton
-                  category={category}
-                  isSelected={selectedCategories.includes(category.id)}
-                  onPress={() => handleCategoryPress(category.id)}
-                  onLongPress={() => handleCategoryLongPress(category.id)}
-                />
-              </View>
-            ))}
-          </View>
-
-          {/* Hint text */}
-          <Text style={styles.hintText}>
-            {language === 'it'
-              ? '💡 Tocca per creare una ricerca • Tieni premuto per selezionare'
-              : '💡 Tap to create a search • Long press to select'}
-          </Text>
-
-          {/* Active Searches Section */}
-          <View style={styles.activeSearchesSection}>
-            <View style={styles.activeSearchesHeader}>
-              <Text style={styles.activeSearchesLabel}>{t.activeSearches}</Text>
-              <TouchableOpacity
-                onPress={() => setShowActiveSearches(!showActiveSearches)}
-              >
-                <View style={styles.countBadge}>
-                  <Text style={styles.countText}>{selectedCategories.length}</Text>
-                </View>
-              </TouchableOpacity>
+        {/* Active Searches Section */}
+        <View style={styles.activeSearchesSection}>
+          <View style={styles.activeSearchesHeader}>
+            <Text style={styles.activeSearchesLabel}>{t.activeSearches}</Text>
+            <View style={styles.countBadge} testID="active-count-badge">
+              <Text style={styles.countText}>{activeSearches.length}</Text>
             </View>
-
-            {showActiveSearches && selectedCategories.length > 0 && (
-              <View style={styles.activeSearchesList}>
-                {getSelectedCategories().map((cat) => (
-                  <View key={cat.id} style={styles.activeSearchItem}>
-                    <MaterialIcons name={cat.icon} size={20} color="#007AFF" />
-                    <Text style={styles.activeSearchText}>{cat.label}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
           </View>
 
-          {/* Create Search Button */}
-          <TouchableOpacity
-            style={[
-              styles.createButton,
-              selectedCategories.length === 0 && styles.createButtonDisabled,
-            ]}
-            onPress={handleCreateSearch}
-            disabled={selectedCategories.length === 0 || processing}
-          >
-            {processing ? (
-              <ActivityIndicator color="#FFF" />
-            ) : (
-              <>
-                <MaterialIcons name="add-circle-outline" size={24} color="#FFF" />
-                <Text style={styles.createButtonText}>{t.createSearch}</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          {activeCategoryLabels.length > 0 && (
+            <View style={styles.activeSearchesList} testID="active-searches-list">
+              {activeCategoryLabels.map((cat) => (
+                <View key={cat.id} style={styles.activeSearchItem}>
+                  <MaterialIcons
+                    name={cat.icon}
+                    size={20}
+                    color="#007AFF"
+                  />
+                  <Text style={styles.activeSearchText}>{cat.label}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
 
-          {/* History Button */}
-          <TouchableOpacity
-            style={styles.historyButton}
-            onPress={() => router.push('/history')}
-          >
-            <MaterialIcons name="history" size={24} color="#007AFF" />
-            <Text style={styles.historyButtonText}>{t.history}</Text>
-          </TouchableOpacity>
-        </ScrollView>
-
-        {/* Search Bottom Sheet */}
-        <SearchBottomSheet ref={bottomSheetRef} onSubmit={handleSearchSubmit} />
-      </SafeAreaView>
-    </GestureHandlerRootView>
+        {/* History Button */}
+        <TouchableOpacity
+          style={styles.historyButton}
+          onPress={() => router.push('/history')}
+          testID="history-button"
+        >
+          <MaterialIcons name="history" size={24} color="#007AFF" />
+          <Text style={styles.historyButtonText}>{t.history}</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -232,6 +173,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 16,
+    paddingBottom: 32,
   },
   mainQuestion: {
     fontSize: 24,
@@ -249,14 +191,6 @@ const styles = StyleSheet.create({
   },
   categoryItem: {
     width: '48%',
-  },
-  hintText: {
-    fontSize: 12,
-    color: '#999',
-    textAlign: 'center',
-    marginTop: -12,
-    marginBottom: 20,
-    fontStyle: 'italic',
   },
   activeSearchesSection: {
     marginBottom: 24,
@@ -276,11 +210,11 @@ const styles = StyleSheet.create({
   countBadge: {
     backgroundColor: '#007AFF',
     borderRadius: 12,
-    minWidth: 24,
-    height: 24,
+    minWidth: 28,
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
   },
   countText: {
     color: '#FFF',
@@ -303,24 +237,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
     fontWeight: '500',
-  },
-  createButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 16,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  createButtonDisabled: {
-    backgroundColor: '#CCC',
-  },
-  createButtonText: {
-    color: '#FFF',
-    fontSize: 18,
-    fontWeight: '700',
   },
   historyButton: {
     backgroundColor: '#FFF',

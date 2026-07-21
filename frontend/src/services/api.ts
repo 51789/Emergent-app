@@ -54,6 +54,36 @@ export const api = {
     if (!response.ok) throw new Error('Failed to delete search');
   },
 
+  // Bulk delete searches
+  async deleteManySearches(ids: string[]): Promise<{ deleted_count: number }> {
+    const response = await fetch(`${BASE_URL}/search/delete-many`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    });
+    if (!response.ok) throw new Error('Failed to delete searches');
+    return response.json();
+  },
+
+  // Delete a single result
+  async deleteResult(resultId: string): Promise<void> {
+    const response = await fetch(`${BASE_URL}/results/${resultId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to delete result');
+  },
+
+  // Bulk delete results
+  async deleteManyResults(ids: string[]): Promise<{ deleted_count: number }> {
+    const response = await fetch(`${BASE_URL}/results/delete-many`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    });
+    if (!response.ok) throw new Error('Failed to delete results');
+    return response.json();
+  },
+
   // Health check
   async healthCheck(): Promise<any> {
     const response = await fetch(`${BASE_URL}/health`);

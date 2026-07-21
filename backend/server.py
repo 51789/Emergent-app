@@ -424,6 +424,51 @@ async def delete_search(search_id: str):
     
     return {"message": "Search and results deleted successfully", "search_id": search_id}
 
+
+class BulkDeleteInput(BaseModel):
+    ids: List[str]
+
+
+@api_router.post("/search/delete-many")
+async def delete_many_searches(input: BulkDeleteInput):
+    """Delete multiple searches and their results at once"""
+    if not input.ids:
+        raise HTTPException(status_code=400, detail="No IDs provided")
+    
+    searches_result = await db.searches.delete_many({"id": {"$in": input.ids}})
+    await db.results.delete_many({"search_id": {"$in": input.ids}})
+    
+    return {
+        "message": "Searches deleted successfully",
+        "deleted_count": searches_result.deleted_count,
+        "requested_count": len(input.ids),
+    }
+
+
+@api_router.delete("/results/{result_id}")
+async def delete_result(result_id: str):
+    """Delete a single result"""
+    result = await db.results.delete_one({"id": result_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Result not found")
+    return {"message": "Result deleted successfully", "result_id": result_id}
+
+
+@api_router.post("/results/delete-many")
+async def delete_many_results(input: BulkDeleteInput):
+    """Delete multiple results at once"""
+    if not input.ids:
+        raise HTTPException(status_code=400, detail="No IDs provided")
+    
+    result = await db.results.delete_many({"id": {"$in": input.ids}})
+    
+    return {
+        "message": "Results deleted successfully",
+        "deleted_count": result.deleted_count,
+        "requested_count": len(input.ids),
+    }
+
+
 @api_router.post("/search/process")
 async def process_search_query(input: SearchQueryCreate):
     """Process a search query with specialized agent and generate context-aware results"""
