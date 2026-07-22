@@ -7,12 +7,14 @@ import {
   StyleSheet,
   SafeAreaView,
   Switch,
+  Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAppStore } from '../src/store';
 import { TRANSLATIONS } from '../src/constants/categories';
 import { api } from '../src/services/api';
+import { PremiumCard } from '../src/components/PremiumCard';
 
 export default function SettingsScreen() {
   const { language, setLanguage } = useAppStore();
@@ -67,6 +69,21 @@ export default function SettingsScreen() {
               thumbColor="#FFF"
             />
           </View>
+        </View>
+
+        {/* Premium Subscription Section */}
+        <View style={styles.section}>
+          <PremiumCard
+            onSubscribe={() => {
+              Alert.alert(
+                language === 'it' ? 'JARVIS Premium' : 'JARVIS Premium',
+                language === 'it'
+                  ? 'Grazie per il tuo interesse! La sottoscrizione Premium sarà disponibile a breve.'
+                  : 'Thanks for your interest! Premium subscription will be available soon.',
+                [{ text: 'OK' }]
+              );
+            }}
+          />
         </View>
 
         {/* System Status Section */}
