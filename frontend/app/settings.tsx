@@ -70,6 +70,24 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* Favorites shortcut */}
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => router.push('/favorites')}
+            activeOpacity={0.7}
+            testID="favorites-menu-item"
+          >
+            <View style={styles.settingInfo}>
+              <MaterialIcons name="star" size={24} color="#FFC107" />
+              <Text style={styles.settingLabel}>
+                {language === 'it' ? 'Preferiti' : 'Favorites'}
+              </Text>
+            </View>
+            <MaterialIcons name="chevron-right" size={24} color="#BBB" />
+          </TouchableOpacity>
+        </View>
+
         {/* Premium Subscription — compact card that opens the plans page */}
         <View style={styles.section}>
           <PremiumCard onPress={() => router.push('/subscribe')} />
