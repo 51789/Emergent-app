@@ -16,6 +16,8 @@ export interface SearchResult {
   source_link: string;
   contacts: string[];
   created_at: string;
+  viewed?: boolean;
+  is_favorite?: boolean;
 }
 
 export interface ProcessedSearch {

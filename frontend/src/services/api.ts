@@ -112,4 +112,20 @@ export const api = {
     if (!response.ok) throw new Error('Failed to fetch active counts');
     return response.json();
   },
+
+  // Toggle favorite on a result
+  async toggleFavorite(resultId: string): Promise<{ result_id: string; is_favorite: boolean }> {
+    const response = await fetch(`${BASE_URL}/results/${resultId}/toggle-favorite`, {
+      method: 'POST',
+    });
+    if (!response.ok) throw new Error('Failed to toggle favorite');
+    return response.json();
+  },
+
+  // Get all favorite results
+  async getFavorites(): Promise<SearchResult[]> {
+    const response = await fetch(`${BASE_URL}/results/favorites`);
+    if (!response.ok) throw new Error('Failed to fetch favorites');
+    return response.json();
+  },
 };

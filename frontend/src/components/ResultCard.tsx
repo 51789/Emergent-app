@@ -1,9 +1,18 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
+import React, { useRef, useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Linking,
+  Animated,
+  Easing,
+} from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SearchResult } from '../types';
 import { useAppStore } from '../store';
 import { TRANSLATIONS } from '../constants/categories';
+import { api } from '../services/api';
 
 interface ResultCardProps {
   result: SearchResult;
@@ -15,7 +24,6 @@ interface ResultCardProps {
 
 /**
  * Extract a friendly host label from a URL (e.g. "immobiliare.it")
- * Falls back to the raw string if URL parsing fails.
  */
 const getSourceLabel = (url: string): string => {
   if (!url) return '';
@@ -37,6 +45,15 @@ export const ResultCard: React.FC<ResultCardProps> = ({
   const { language } = useAppStore();
   const t = TRANSLATIONS[language];
 
+  const [isFavorite, setIsFavorite] = useState<boolean>(!!result.is_favorite);
+  const [savingFav, setSavingFav] = useState(false);
+  const starScale = useRef(new Animated.Value(1)).current;
+
+  // Sync local state if the result prop changes (e.g. after re-fetch)
+  useEffect(() => {
+    setIsFavorite(!!result.is_favorite);
+  }, [result.is_favorite]);
+
   const handleOpenLink = () => {
     if (result.source_link) {
       Linking.openURL(result.source_link).catch(() => {
@@ -48,6 +65,46 @@ export const ResultCard: React.FC<ResultCardProps> = ({
   const handlePress = () => {
     if (selectionMode && onToggleSelect) {
       onToggleSelect();
+    }
+  };
+
+  const bounceStar = () => {
+    starScale.setValue(1);
+    Animated.sequence([
+      Animated.timing(starScale, {
+        toValue: 1.4,
+        duration: 150,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(starScale, {
+        toValue: 1,
+        duration: 200,
+        easing: Easing.out(Easing.back(2)),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const handleToggleFavorite = async () => {
+    if (savingFav) return;
+
+    // Optimistic UI: flip locally + animate immediately
+    const nextState = !isFavorite;
+    setIsFavorite(nextState);
+    bounceStar();
+
+    try {
+      setSavingFav(true);
+      const res = await api.toggleFavorite(result.id);
+      // Sync with server response in case of divergence
+      setIsFavorite(res.is_favorite);
+    } catch (err) {
+      // Rollback on error
+      console.error('Failed to toggle favorite:', err);
+      setIsFavorite(!nextState);
+    } finally {
+      setSavingFav(false);
     }
   };
 
@@ -74,7 +131,39 @@ export const ResultCard: React.FC<ResultCardProps> = ({
       )}
 
       <View style={styles.contentContainer}>
-        <Text style={styles.title}>{result.title}</Text>
+        {/* Header row: title + favorite star */}
+        <View style={styles.titleRow}>
+          <Text style={styles.title} numberOfLines={3}>
+            {result.title}
+          </Text>
+
+          {!selectionMode && (
+            <TouchableOpacity
+              onPress={handleToggleFavorite}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              testID={`favorite-button-${result.id}`}
+              accessibilityLabel={
+                isFavorite
+                  ? language === 'it'
+                    ? 'Rimuovi dai preferiti'
+                    : 'Remove from favorites'
+                  : language === 'it'
+                    ? 'Aggiungi ai preferiti'
+                    : 'Add to favorites'
+              }
+              style={styles.starButton}
+            >
+              <Animated.View style={{ transform: [{ scale: starScale }] }}>
+                <MaterialIcons
+                  name={isFavorite ? 'star' : 'star-border'}
+                  size={26}
+                  color={isFavorite ? '#FFC107' : '#BBB'}
+                />
+              </Animated.View>
+            </TouchableOpacity>
+          )}
+        </View>
+
         <Text style={styles.summary}>{result.summary}</Text>
 
         {/* Source Reference Section */}
@@ -149,11 +238,25 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 8,
+  },
   title: {
+    flex: 1,
     fontSize: 16,
     fontWeight: '700',
     color: '#1A1A1A',
-    marginBottom: 8,
+  },
+  starButton: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -2,
   },
   summary: {
     fontSize: 14,

@@ -58,6 +58,7 @@ class SearchResult(BaseModel):
     contacts: Optional[List[str]] = []
     created_at: datetime = Field(default_factory=datetime.utcnow)
     viewed: bool = False
+    is_favorite: bool = False
 
 class AgentResponse(BaseModel):
     agent_type: str
@@ -449,6 +450,33 @@ async def get_active_search_counts_per_category():
         "total": total,
         "per_category": per_category,
     }
+
+
+@api_router.post("/results/{result_id}/toggle-favorite")
+async def toggle_result_favorite(result_id: str):
+    """Toggle the favorite status of a result"""
+    result = await db.results.find_one({"id": result_id}, {"_id": 0})
+    if not result:
+        raise HTTPException(status_code=404, detail="Result not found")
+    
+    new_state = not result.get("is_favorite", False)
+    await db.results.update_one(
+        {"id": result_id},
+        {"$set": {"is_favorite": new_state}},
+    )
+    
+    return {
+        "result_id": result_id,
+        "is_favorite": new_state,
+    }
+
+
+@api_router.get("/results/favorites")
+async def get_favorite_results():
+    """Get all favorite results across all searches"""
+    cursor = db.results.find({"is_favorite": True}, {"_id": 0}).sort("created_at", -1)
+    favorites = await cursor.to_list(500)
+    return [SearchResult(**doc) for doc in favorites]
 
 
 @api_router.get("/")
