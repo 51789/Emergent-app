@@ -15,6 +15,7 @@ export interface SearchResult {
   keywords: string[];
   source_link: string;
   contacts: string[];
+  seller_type?: string | null;
   created_at: string;
   viewed?: boolean;
   is_favorite?: boolean;

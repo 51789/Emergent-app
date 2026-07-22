@@ -56,6 +56,7 @@ class SearchResult(BaseModel):
     keywords: List[str]
     source_link: str
     contacts: Optional[List[str]] = []
+    seller_type: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     viewed: bool = False
     is_favorite: bool = False
@@ -302,6 +303,19 @@ async def generate_ai_results(query: str, category: str, language: str = "it") -
     context = category_context.get(category, "informazioni generiche")
     sources = source_examples.get(category, "vari siti web")
     
+    # Seller-type taxonomy per category — the AI MUST pick from this list.
+    seller_type_options = {
+        "immobili": '"Privato" | "Agenzia Immobiliare"',
+        "auto_moto": '"Privato" | "Rivenditore Ufficiale" | "Concessionario"',
+        "divertimento": '"Organizzatore Ufficiale" | "Rivenditore Autorizzato" | "Privato"',
+        "nuove_leggi": '"Ente Pubblico"',
+        "bandi": '"Ente Pubblico"',
+        "gare_appalto": '"Ente Pubblico" | "Amministrazione Locale"',
+        "finanza": '"Istituto Finanziario" | "Broker Autorizzato" | "Privato"',
+        "lavoro": '"Azienda" | "Agenzia per il Lavoro" | "Ente Pubblico" | "Privato"',
+    }
+    seller_options = seller_type_options.get(category, '"Privato" | "Azienda"')
+    
     prompt = f"""Sei un motore di ricerca specializzato in {context}.
 
 RICHIESTA DELL'UTENTE: "{query}"
@@ -311,8 +325,10 @@ Devi generare 3-4 risultati di ricerca REALISTICI che rispettino ESATTAMENTE i c
 - Il PREZZO/BUDGET deve rientrare nel range indicato
 - Le CARATTERISTICHE (tipologia, superficie, ecc.) devono corrispondere
 - I dettagli devono essere plausibili e realistici per la zona indicata
+- Per ogni risultato indica il TIPO DI VENDITORE (seller_type) coerente col contesto
 
 Fonti tipiche: {sources}
+Valori validi per seller_type in questa categoria: {seller_options}
 
 Restituisci SOLO un JSON valido con questo formato ESATTO (nessun altro testo):
 {{
@@ -321,7 +337,8 @@ Restituisci SOLO un JSON valido con questo formato ESATTO (nessun altro testo):
       "title": "Titolo dell'annuncio (specifico per la località richiesta)",
       "snippet": "Descrizione dettagliata dell'annuncio con dettagli plausibili per la zona",
       "link": "https://sito-realistico.it/annuncio-specifico",
-      "contacts": ["email@esempio.it", "+39 XXX XXXXXXX"]
+      "contacts": ["email@esempio.it", "+39 XXX XXXXXXX"],
+      "seller_type": "uno dei valori validi elencati sopra"
     }}
   ]
 }}
@@ -331,6 +348,8 @@ IMPORTANTE:
 - Se l'utente cerca ad Alcamo, TUTTI i risultati devono essere ad Alcamo (Sicilia)
 - Genera prefissi telefonici corretti per la zona (091 per Palermo/Alcamo, 011 per Torino, 02 per Milano, ecc.)
 - I nomi delle agenzie/aziende devono essere plausibili per la zona
+- Varia i seller_type tra i risultati (es. mix di Privato e Agenzia) per realismo
+- I contatti (email/telefono) devono essere coerenti col seller_type (es. dominio agenzia se Agenzia)
 """
     
     try:
@@ -601,7 +620,8 @@ async def process_search_query(input: SearchQueryCreate):
                 summary=result.get("snippet", ""),
                 keywords=agent_result.get("keywords", []),
                 source_link=result.get("link", ""),
-                contacts=result.get("contacts", [])
+                contacts=result.get("contacts", []),
+                seller_type=result.get("seller_type"),
             )
             await db.results.insert_one(search_result.dict())
             saved_results.append(search_result.dict())

@@ -1,0 +1,37 @@
+{
+  "summary": "Verified the new seller_type feature end-to-end. Backend: 8/8 pytest tests PASS — POST /api/search/process populates seller_type for immobili/auto_moto/lavoro categories, values respect the per-category taxonomy, seller_type persists via GET /api/search/{id}/results with no _id leak, legacy docs without the field return seller_type: null, and non-regression on favorites/mark-viewed/delete/create is intact. Frontend (Playwright, mobile 390x844): seller-type-{id} testID renders in 4/4 result cards for both immobili and auto_moto queries; computed style is color=rgb(0,0,0) (NERO) and fontWeight=700 (bold) as required; MaterialIcons 'badge' icon (font glyph \\uea67, family material) is rendered to the left of the label; the element sits BELOW the Contatti section (email/phone in blue) — layout intact. Variation observed on auto_moto (Concessionario, Rivenditore Ufficiale, Privato). Feature is production-ready.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "Animated (ResultCard star bounce)", "issue": "Pre-existing web-only warning: useNativeDriver not supported on Expo web preview. Not a regression. Reference: /app/frontend/src/components/ResultCard.tsx:76-86"},
+      {"component": "Style deprecations", "issue": "Pre-existing warnings on web: 'shadow*' style props deprecated (use boxShadow) and props.pointerEvents deprecated (use style.pointerEvents). Not related to seller_type change but worth cleaning up. Reference: /app/frontend/src/components/ResultCard.tsx:237-241"}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_seller_type.py",
+    "/app/test_reports/pytest/seller_type_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py generate_ai_results correctly passes the seller_type_options taxonomy into the LLM prompt AND explicitly requests variation — good design.",
+    "SearchResult.seller_type is Optional[str] = None so Pydantic serializes legacy DB docs (without the field) as null — verified by test_fallback_missing_seller_type.",
+    "ResultCard.tsx has two rendering branches (with/without contacts) both correctly gated by result.seller_type — no duplicate render risk.",
+    "seller_type is rendered in a Text component with color '#000' and fontWeight '700' — visually distinguishable from blue contact text, per the user requirement 'in NERO sotto l'e-mail e l'utenza telefonica'.",
+    "No hardcoded URLs; backend uses env vars; MongoDB _id excluded via Pydantic model round-trip."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_seller_type.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Created ~6 temporary searches via /api/search/process and one legacy doc inserted directly via motor; all cleaned up by fixture teardown (DELETE /api/search/{id}).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Reuse /app/backend/tests/test_seller_type.py for regression on any change to generate_ai_results or the SearchResult model. Frontend selectors: [data-testid='seller-type-{id}'] renders as a View containing a MaterialIcons 'badge' glyph + Text with the type label. Validate color via getComputedStyle().color === 'rgb(0, 0, 0)' and fontWeight === '700'. AI generation takes ~5-15s per /api/search/process call — always wait_for_selector('[data-testid=\"delete-search-button\"]', timeout=60000) after submit.",
+  "rca_of_issue": "N/A — feature works as specified."
+}

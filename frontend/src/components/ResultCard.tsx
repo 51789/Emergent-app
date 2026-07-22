@@ -192,8 +192,23 @@ export const ResultCard: React.FC<ResultCardProps> = ({
                 {contact}
               </Text>
             ))}
+            {result.seller_type ? (
+              <View style={styles.sellerTypeRow} testID={`seller-type-${result.id}`}>
+                <MaterialIcons name="badge" size={14} color="#000" />
+                <Text style={styles.sellerTypeText}>{result.seller_type}</Text>
+              </View>
+            ) : null}
           </View>
         )}
+
+        {(!result.contacts || result.contacts.length === 0) && result.seller_type ? (
+          <View style={styles.contactsContainer}>
+            <View style={styles.sellerTypeRow} testID={`seller-type-${result.id}`}>
+              <MaterialIcons name="badge" size={14} color="#000" />
+              <Text style={styles.sellerTypeText}>{result.seller_type}</Text>
+            </View>
+          </View>
+        ) : null}
 
         {!selectionMode && result.source_link ? (
           <TouchableOpacity
@@ -307,6 +322,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#007AFF',
     marginTop: 4,
+  },
+  sellerTypeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+  },
+  sellerTypeText: {
+    fontSize: 13,
+    color: '#000',
+    fontWeight: '700',
   },
   linkButton: {
     flexDirection: 'row',
