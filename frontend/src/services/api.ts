@@ -90,4 +90,26 @@ export const api = {
     if (!response.ok) throw new Error('Health check failed');
     return response.json();
   },
+
+  // Get unviewed results count (for notification bell)
+  async getUnviewedCount(): Promise<{ total: number; per_category: Record<string, number> }> {
+    const response = await fetch(`${BASE_URL}/notifications/unviewed-count`);
+    if (!response.ok) throw new Error('Failed to fetch unviewed count');
+    return response.json();
+  },
+
+  // Mark all results of a search as viewed
+  async markSearchViewed(searchId: string): Promise<void> {
+    const response = await fetch(`${BASE_URL}/searches/${searchId}/mark-viewed`, {
+      method: 'POST',
+    });
+    if (!response.ok) throw new Error('Failed to mark viewed');
+  },
+
+  // Get active search counts per category
+  async getActiveSearchCounts(): Promise<{ total: number; per_category: Record<string, number> }> {
+    const response = await fetch(`${BASE_URL}/search/active/counts`);
+    if (!response.ok) throw new Error('Failed to fetch active counts');
+    return response.json();
+  },
 };

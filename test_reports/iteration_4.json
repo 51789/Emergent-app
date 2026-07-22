@@ -1,0 +1,33 @@
+{
+  "summary": "Verified all new notification-bell + per-category-count features on JARVIS. BACKEND (8/8 pytest passing in 43s on public URL): (1) GET /api/notifications/unviewed-count returns {total:int, per_category:dict}; increments after POST /api/search/process (new results default viewed=False verified) and shows multiple categories with their counts (created immobili + auto_moto, both appear >0). (2) POST /api/searches/{id}/mark-viewed returns updated_count>0 on first call, total decreases in the unviewed-count endpoint, GET /api/search/{id}/results confirms viewed=True persisted, and idempotent second call returns updated_count=0. (3) GET /api/search/active/counts returns {total, per_category} where total==sum(per_category.values()) and no zero-count categories are returned; creating 1 immobili + 2 auto_moto increments both correctly, deleting one auto_moto decrements total and per_category correctly. (4) Non-regression: /api/search/process still creates results with viewed=False; DELETE /api/search/{id} and POST /api/search/delete-many still work. FRONTEND (Playwright on mobile 390x844): (a) notification-bell present with red icon (computed color rgb(255,59,48) verified) + notification-badge showing '4' (max '99+' logic correct). (b) active-count-badge shows total ('5'), active-searches-list present, category-count-{immobili|bandi|auto_moto} rendered with numeric counts (1, 2, 2) matching backend. (c) Full flow: home → tap category-button-divertimento → fill search-input 'eventi Milano weekend' → submit-button → results page (delete-search-button appeared, AI generated results in ~10s) → back to home. On returning: (i) active-category-divertimento appears in Ricerche Attive with category-count-divertimento='1'; (ii) new-badge-divertimento is HIDDEN — confirming markSearchViewed was called on results screen and turned off the red badge for that category. (iii) The notification badge count stayed at '4' overall (was 4 baseline + 1 new − 1 viewed = 4), proving mark-viewed decremented as expected. (d) Clicking notification-bell navigates to /history (CRONOLOGIA screen loaded). Backend URL used: https://jarvis-assistant-603.preview.emergentagent.com (from frontend/.env EXPO_PUBLIC_BACKEND_URL — the localhost:8001 in the review_request is only reachable inside the container; public URL is what user sees and what testing must use). No React Native/Expo deprecated-package issues detected in the new code.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_notifications.py",
+    "/app/test_reports/pytest/pytest_results.xml",
+    "/app/test_reports/iteration_4.json"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py: /api/notifications/unviewed-count uses $lookup+$unwind+$group aggregation to compute per-category counts — correct and O(N) over unviewed results only.",
+    "server.py: /api/searches/{id}/mark-viewed uses idempotent update_many with {viewed:False} filter, so updated_count naturally reports 0 on repeat calls — correct semantics.",
+    "server.py: /api/search/active/counts only groups is_active:true and skips zero-count categories as required by spec.",
+    "server.py: SearchResult.viewed defaults to False via Pydantic — verified new /search/process results are stored with viewed=False.",
+    "NotificationBell.tsx: color/icon switch is correctly bound to hasNotifications (count>0); animation loop is properly cleaned up (loop.stop() in effect cleanup and shake.setValue(0) when reaching 0 notifications).",
+    "index.tsx: refresh() uses Promise.all + useFocusEffect + 30s setInterval + pull-to-refresh — proper coverage of update triggers. Interval cleanup handled in useEffect return.",
+    "results.tsx: markSearchViewed is fire-and-forget with a .catch — good; won't block UI if it errors.",
+    "Minor (non-blocking): api.ts uses EXPO_PUBLIC_BACKEND_URL (not EXPO_BACKEND_URL as mentioned in system prompt) — this is consistent with how the project has been set up in prior iterations and matches frontend/.env, so leaving as-is."
+  ],
+  "updated_files": ["/app/backend/tests/test_notifications.py"],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "100%"},
+  "seed_data_creation": "Ephemeral test searches (TEST_ prefixed queries) created per test and cleaned up via delete-many fixture teardown. One divertimento search 'eventi Milano weekend' was created by the Playwright test and remains in DB — safe to leave or clean up manually via UI.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Public URL: https://jarvis-assistant-603.preview.emergentagent.com. Splash takes ~5-6s; wait_for_selector timeout>=20s for menu-button. Key new testIDs: notification-bell, notification-badge, active-count-badge, active-searches-list, active-category-{catId}, category-count-{catId}, new-badge-{catId}. MaterialIcons in RN-web render as font glyphs (unicode chars like \\ue7f7) NOT as text 'notifications-active', so verify red bell via computed color rgb(255,59,48) on descendant DIV, not textContent. AI /api/search/process takes ~7-15s per request. Bell click navigates to /history. mark-viewed is idempotent.",
+  "rca_of_issue": "N/A — feature verification, all acceptance criteria met."
+}

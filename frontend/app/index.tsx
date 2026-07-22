@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,10 +6,12 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
+  RefreshControl,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { CategoryButton } from '../src/components/CategoryButton';
+import { NotificationBell } from '../src/components/NotificationBell';
 import { useAppStore } from '../src/store';
 import { CATEGORIES, TRANSLATIONS } from '../src/constants/categories';
 import { api } from '../src/services/api';
@@ -19,43 +21,69 @@ export default function HomeScreen() {
     language,
     setLanguage,
     activeSearches,
+    activeCounts,
+    notificationCount,
+    notificationsPerCategory,
     setActiveSearches,
+    setActiveCounts,
+    setNotifications,
   } = useAppStore();
   const t = TRANSLATIONS[language];
+  const [refreshing, setRefreshing] = React.useState(false);
 
-  // Load active searches so the counter reflects real data
+  const refresh = useCallback(async () => {
+    try {
+      const [searches, counts, notifs] = await Promise.all([
+        api.getActiveSearches(),
+        api.getActiveSearchCounts(),
+        api.getUnviewedCount(),
+      ]);
+      setActiveSearches(searches);
+      setActiveCounts(counts);
+      setNotifications(notifs);
+    } catch (error) {
+      console.error('Error loading home data:', error);
+    }
+  }, [setActiveSearches, setActiveCounts, setNotifications]);
+
+  // Re-load every time the screen gains focus so counts stay in sync
+  // when the user returns from results/history/category pages.
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh])
+  );
+
+  // Poll every 30s so the bell/notifications update if new results arrive
+  // (e.g. from background monitoring, when implemented).
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const searches = await api.getActiveSearches();
-        if (!cancelled) setActiveSearches(searches);
-      } catch (error) {
-        console.error('Error loading active searches:', error);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [setActiveSearches]);
+    const interval = setInterval(refresh, 30000);
+    return () => clearInterval(interval);
+  }, [refresh]);
 
   const handleCategoryPress = (categoryId: string) => {
-    // Tapping a category directly opens its search page.
-    // This is the ONLY way to start a search now — no more "Crea Ricerca" button.
     router.push({
       pathname: '/category/[categoryId]',
       params: { categoryId },
     });
   };
 
-  // Distinct categories that currently have active searches
-  const activeCategoryIds = Array.from(
-    new Set(activeSearches.map((s) => s.category))
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refresh();
+    setRefreshing(false);
+  };
+
+  const totalActive = activeSearches.length;
+
+  // Categories that currently have at least one active search
+  const activeCategoryLabels = CATEGORIES.filter(
+    (cat) => (activeCounts[cat.id] || 0) > 0
   );
-  const activeCategoryLabels = activeCategoryIds
-    .map((id) => CATEGORIES.find((c) => c.id === id))
-    .filter(Boolean) as typeof CATEGORIES;
+
+  const handleBellPress = () => {
+    router.push('/history');
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -69,29 +97,36 @@ export default function HomeScreen() {
           <MaterialIcons name="menu" size={28} color="#333" />
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.languageButton}
-          onPress={() => setLanguage(language === 'it' ? 'en' : 'it')}
-          testID="language-button"
-        >
-          <MaterialIcons name="language" size={24} color="#333" />
-          <Text style={styles.languageText}>{language.toUpperCase()}</Text>
-          <MaterialIcons name="arrow-drop-down" size={24} color="#333" />
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <NotificationBell
+            count={notificationCount}
+            onPress={handleBellPress}
+          />
+
+          <TouchableOpacity
+            style={styles.languageButton}
+            onPress={() => setLanguage(language === 'it' ? 'en' : 'it')}
+            testID="language-button"
+          >
+            <MaterialIcons name="language" size={22} color="#333" />
+            <Text style={styles.languageText}>{language.toUpperCase()}</Text>
+            <MaterialIcons name="arrow-drop-down" size={22} color="#333" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#007AFF" />
+        }
       >
         {/* Main Question */}
         <Text style={styles.mainQuestion}>{t.headerTitle}</Text>
 
-        {/* Category Grid — tap to open category, start a search.
-            Buttons must NEVER appear selected — pressing a category simply
-            navigates to its search page, active searches are shown in the
-            "Ricerche Attive" section below. */}
+        {/* Category Grid — tap opens category page, buttons never appear selected */}
         <View style={styles.categoryGrid}>
           {CATEGORIES.map((category) => (
             <View key={category.id} style={styles.categoryItem}>
@@ -109,22 +144,46 @@ export default function HomeScreen() {
           <View style={styles.activeSearchesHeader}>
             <Text style={styles.activeSearchesLabel}>{t.activeSearches}</Text>
             <View style={styles.countBadge} testID="active-count-badge">
-              <Text style={styles.countText}>{activeSearches.length}</Text>
+              <Text style={styles.countText}>{totalActive}</Text>
             </View>
           </View>
 
           {activeCategoryLabels.length > 0 && (
             <View style={styles.activeSearchesList} testID="active-searches-list">
-              {activeCategoryLabels.map((cat) => (
-                <View key={cat.id} style={styles.activeSearchItem}>
-                  <MaterialIcons
-                    name={cat.icon}
-                    size={20}
-                    color="#007AFF"
-                  />
-                  <Text style={styles.activeSearchText}>{cat.label}</Text>
-                </View>
-              ))}
+              {activeCategoryLabels.map((cat) => {
+                const count = activeCounts[cat.id] || 0;
+                const notifs = notificationsPerCategory[cat.id] || 0;
+                return (
+                  <View
+                    key={cat.id}
+                    style={styles.activeSearchItem}
+                    testID={`active-category-${cat.id}`}
+                  >
+                    <MaterialIcons name={cat.icon} size={20} color="#007AFF" />
+                    <Text style={styles.activeSearchText}>{cat.label}</Text>
+
+                    {/* New results badge (red) — shown only if there are unseen results in this category */}
+                    {notifs > 0 && (
+                      <View
+                        style={styles.newBadge}
+                        testID={`new-badge-${cat.id}`}
+                      >
+                        <Text style={styles.newBadgeText}>
+                          +{notifs > 99 ? '99' : notifs}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Category count (blue) — active searches for this category */}
+                    <View
+                      style={styles.categoryCountBadge}
+                      testID={`category-count-${cat.id}`}
+                    >
+                      <Text style={styles.categoryCountText}>{count}</Text>
+                    </View>
+                  </View>
+                );
+              })}
             </View>
           )}
         </View>
@@ -152,19 +211,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
   menuButton: {
     padding: 8,
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   languageButton: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 8,
-    gap: 4,
+    gap: 2,
   },
   languageText: {
     fontSize: 14,
@@ -212,7 +276,7 @@ const styles = StyleSheet.create({
   },
   countBadge: {
     backgroundColor: '#007AFF',
-    borderRadius: 12,
+    borderRadius: 14,
     minWidth: 28,
     height: 28,
     alignItems: 'center',
@@ -228,18 +292,48 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9F9F9',
     borderRadius: 12,
     padding: 12,
-    gap: 8,
+    gap: 6,
   },
   activeSearchItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 4,
+    gap: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
   },
   activeSearchText: {
+    flex: 1,
     fontSize: 14,
     color: '#333',
     fontWeight: '500',
+  },
+  categoryCountBadge: {
+    backgroundColor: '#007AFF',
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  categoryCountText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  newBadge: {
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    minWidth: 28,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  newBadgeText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '800',
   },
   historyButton: {
     backgroundColor: '#FFF',

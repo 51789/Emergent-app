@@ -57,6 +57,7 @@ class SearchResult(BaseModel):
     source_link: str
     contacts: Optional[List[str]] = []
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    viewed: bool = False
 
 class AgentResponse(BaseModel):
     agent_type: str
@@ -381,6 +382,75 @@ def get_mock_results(query: str, category: str) -> List[Dict[str, Any]]:
 
 
 # ==================== API ENDPOINTS ====================
+@api_router.get("/notifications/unviewed-count")
+async def get_unviewed_count():
+    """Get the count of unviewed results (for notification bell).
+    Returns total count and breakdown by category."""
+    unviewed = await db.results.count_documents({"viewed": False})
+    
+    # Get counts per category (join with searches collection)
+    pipeline = [
+        {"$match": {"viewed": False}},
+        {"$lookup": {
+            "from": "searches",
+            "localField": "search_id",
+            "foreignField": "id",
+            "as": "search",
+        }},
+        {"$unwind": "$search"},
+        {"$group": {
+            "_id": "$search.category",
+            "count": {"$sum": 1},
+        }},
+    ]
+    per_category_cursor = db.results.aggregate(pipeline)
+    per_category = {}
+    async for doc in per_category_cursor:
+        per_category[doc["_id"]] = doc["count"]
+    
+    return {
+        "total": unviewed,
+        "per_category": per_category,
+    }
+
+
+@api_router.post("/searches/{search_id}/mark-viewed")
+async def mark_search_results_viewed(search_id: str):
+    """Mark all results of a search as viewed"""
+    result = await db.results.update_many(
+        {"search_id": search_id, "viewed": False},
+        {"$set": {"viewed": True}},
+    )
+    return {
+        "message": "Results marked as viewed",
+        "search_id": search_id,
+        "updated_count": result.modified_count,
+    }
+
+
+@api_router.get("/search/active/counts")
+async def get_active_search_counts_per_category():
+    """Get active search count per category, for the home screen."""
+    pipeline = [
+        {"$match": {"is_active": True}},
+        {"$group": {
+            "_id": "$category",
+            "count": {"$sum": 1},
+        }},
+    ]
+    cursor = db.searches.aggregate(pipeline)
+    per_category = {}
+    total = 0
+    async for doc in cursor:
+        per_category[doc["_id"]] = doc["count"]
+        total += doc["count"]
+    
+    return {
+        "total": total,
+        "per_category": per_category,
+    }
+
+
 @api_router.get("/")
 async def root():
     return {"message": "JARVIS API - Your Digital Assistant"}

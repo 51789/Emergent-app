@@ -38,6 +38,10 @@ export default function ResultsScreen() {
       setLoading(true);
       const data = await api.getSearchResults(searchId);
       setResults(data);
+      // Mark all results of this search as viewed (turns off the red bell for these)
+      api.markSearchViewed(searchId).catch((err) => {
+        console.error('Failed to mark results as viewed:', err);
+      });
     } catch (error) {
       console.error('Error loading results:', error);
     } finally {
