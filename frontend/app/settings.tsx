@@ -7,7 +7,6 @@ import {
   StyleSheet,
   SafeAreaView,
   Switch,
-  Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -71,19 +70,9 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Premium Subscription Section */}
+        {/* Premium Subscription — compact card that opens the plans page */}
         <View style={styles.section}>
-          <PremiumCard
-            onSubscribe={() => {
-              Alert.alert(
-                language === 'it' ? 'JARVIS Premium' : 'JARVIS Premium',
-                language === 'it'
-                  ? 'Grazie per il tuo interesse! La sottoscrizione Premium sarà disponibile a breve.'
-                  : 'Thanks for your interest! Premium subscription will be available soon.',
-                [{ text: 'OK' }]
-              );
-            }}
-          />
+          <PremiumCard onPress={() => router.push('/subscribe')} />
         </View>
 
         {/* System Status Section */}
