@@ -197,6 +197,17 @@ export default function HomeScreen() {
           <MaterialIcons name="history" size={24} color="#007AFF" />
           <Text style={styles.historyButtonText}>{t.history}</Text>
         </TouchableOpacity>
+
+        {/* Stop searches Button — deactivates without deleting */}
+        <TouchableOpacity
+          style={styles.stopButton}
+          onPress={() => router.push('/stop-searches')}
+          testID="stop-searches-button"
+          activeOpacity={0.85}
+        >
+          <MaterialIcons name="pause-circle-outline" size={24} color="#D14343" />
+          <Text style={styles.stopButtonText}>Interrompi ricerche</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -348,6 +359,23 @@ const styles = StyleSheet.create({
   },
   historyButtonText: {
     color: '#007AFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  stopButton: {
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 2,
+    borderColor: '#D14343',
+    marginTop: 12,
+  },
+  stopButtonText: {
+    color: '#D14343',
     fontSize: 16,
     fontWeight: '600',
   },

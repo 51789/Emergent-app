@@ -766,6 +766,39 @@ class BulkDeleteInput(BaseModel):
     ids: List[str]
 
 
+class BulkToggleInput(BaseModel):
+    ids: List[str]
+    is_active: bool
+
+
+@api_router.patch("/search/{search_id}/toggle-active")
+async def toggle_search_active(search_id: str, is_active: bool = True):
+    """Toggle the `is_active` flag of a single search without deleting it.
+    Deactivated searches keep their history and results, but no longer show up
+    in the active counters on the home."""
+    updated = await db.searches.update_one(
+        {"id": search_id}, {"$set": {"is_active": is_active}}
+    )
+    if updated.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Search not found")
+    return {"search_id": search_id, "is_active": is_active}
+
+
+@api_router.post("/search/toggle-active-many")
+async def toggle_active_many(input: BulkToggleInput):
+    """Bulk deactivate (or reactivate) multiple searches at once."""
+    if not input.ids:
+        raise HTTPException(status_code=400, detail="No IDs provided")
+    res = await db.searches.update_many(
+        {"id": {"$in": input.ids}}, {"$set": {"is_active": input.is_active}}
+    )
+    return {
+        "matched_count": res.matched_count,
+        "modified_count": res.modified_count,
+        "is_active": input.is_active,
+    }
+
+
 @api_router.post("/search/delete-many")
 async def delete_many_searches(input: BulkDeleteInput):
     """Delete multiple searches and their results at once"""

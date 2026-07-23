@@ -129,6 +129,26 @@ export const api = {
     return response.json();
   },
 
+  // Toggle a single search active/paused
+  async toggleSearchActive(searchId: string, isActive: boolean): Promise<void> {
+    const response = await fetch(
+      `${BASE_URL}/search/${searchId}/toggle-active?is_active=${isActive}`,
+      { method: 'PATCH' }
+    );
+    if (!response.ok) throw new Error('Failed to toggle search');
+  },
+
+  // Bulk toggle many searches (used by "Interrompi ricerche")
+  async toggleActiveMany(ids: string[], isActive: boolean): Promise<{ matched_count: number; modified_count: number }> {
+    const response = await fetch(`${BASE_URL}/search/toggle-active-many`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, is_active: isActive }),
+    });
+    if (!response.ok) throw new Error('Failed to bulk toggle searches');
+    return response.json();
+  },
+
   // Get all unread results (for the dedicated Notifications screen)
   async getUnviewedResults(): Promise<any[]> {
     const response = await fetch(`${BASE_URL}/notifications/unviewed`);

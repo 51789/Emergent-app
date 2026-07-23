@@ -1,0 +1,37 @@
+{
+  "summary": "Backend-only test of NEW deactivate-without-delete endpoints: PATCH /api/search/{id}/toggle-active and POST /api/search/toggle-active-many. Added /app/backend/tests/test_toggle_active.py with 16 tests covering: single deactivate/reactivate, 404 for unknown id, default is_active=True when param omitted, /search/active list & /search/active/counts drop deactivated items, bulk deactivate+reactivate with matched/modified counts, empty ids -> 400, unknown ids -> 200 matched=0, missing is_active -> 422, and DATA PRESERVATION (results still accessible via /search/{id}/results after deactivation). 16/16 PASSED. Regression run of test_auth_admin_push.py (25), test_analytics.py (24), test_bulk_delete.py (6) => 55/55 PASSED. Total 71/71 backend tests green. No changes to backend code required.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_toggle_active.py",
+    "/app/test_reports/pytest/toggle_active_results.xml",
+    "/app/test_reports/pytest/regression_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "toggle_search_active default is `is_active: bool = True` — sensible, but the endpoint name 'toggle-active' is a slight misnomer since it does not flip the current state, it sets an explicit state from the query param. Non-blocking, purely naming.",
+    "toggle_active_many does not validate that all supplied ids exist; unknown ids silently return matched=0. This is documented via a test; consider returning the list of unmatched ids in the response for better UX in the stop-searches screen.",
+    "server.py is now ~1260 lines with analytics extracted; the search endpoints (create/get/delete/toggle/bulk-*) could similarly be moved into routers/searches.py to keep the main file lean.",
+    "Both new endpoints accept unauthenticated calls — consistent with all other /api/search/* endpoints in this app, but worth confirming with the owner if the stop-searches screen should be admin-only."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_toggle_active.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (16/16 new + 55/55 regression = 71/71)",
+    "frontend": "not tested (backend-only request)"
+  },
+  "seed_data_creation": "Each test creates its own TEST_toggle_* searches via /api/search/create or /search/process and cleans them up via DELETE /api/search/{id} or /search/delete-many. No admin/prod data modified.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Toggle-active endpoints are stable and fully covered by test_toggle_active.py. Reuse for regression. Next iteration should focus on the frontend stop-searches.tsx UI (multi-select, Interrompi ricerche button behaviour) since backend is green.",
+  "rca_of_issue": "N/A — no failures detected."
+}
