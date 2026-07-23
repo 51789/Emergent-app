@@ -154,10 +154,12 @@ export default function HomeScreen() {
                 const count = activeCounts[cat.id] || 0;
                 const notifs = notificationsPerCategory[cat.id] || 0;
                 return (
-                  <View
+                  <TouchableOpacity
                     key={cat.id}
                     style={styles.activeSearchItem}
                     testID={`active-category-${cat.id}`}
+                    onPress={() => router.push(`/active-searches/${cat.id}`)}
+                    activeOpacity={0.6}
                   >
                     <MaterialIcons name={cat.icon} size={20} color="#007AFF" />
                     <Text style={styles.activeSearchText}>{cat.label}</Text>
@@ -174,29 +176,19 @@ export default function HomeScreen() {
                       </View>
                     )}
 
-                    {/* Category count (blue) — active searches for this category */}
+                    {/* Category count (blue bold, no background) */}
                     <View
                       style={styles.categoryCountBadge}
                       testID={`category-count-${cat.id}`}
                     >
                       <Text style={styles.categoryCountText}>{count}</Text>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 );
               })}
             </View>
           )}
         </View>
-
-        {/* History Button */}
-        <TouchableOpacity
-          style={styles.historyButton}
-          onPress={() => router.push('/history')}
-          testID="history-button"
-        >
-          <MaterialIcons name="history" size={24} color="#007AFF" />
-          <Text style={styles.historyButtonText}>{t.history}</Text>
-        </TouchableOpacity>
 
         {/* Stop searches Button — deactivates without deleting */}
         <TouchableOpacity
@@ -369,7 +361,6 @@ const styles = StyleSheet.create({
     gap: 8,
     borderWidth: 2,
     borderColor: '#D14343',
-    marginTop: 12,
   },
   stopButtonText: {
     color: '#D14343',

@@ -181,8 +181,28 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Favorites shortcut */}
+        {/* Ricerche section — Cronologia + Preferiti */}
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            {language === 'it' ? 'Ricerche' : 'Searches'}
+          </Text>
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => router.push('/history')}
+            activeOpacity={0.7}
+            testID="history-menu-item"
+          >
+            <View style={styles.settingInfo}>
+              <MaterialIcons name="history" size={24} color="#007AFF" />
+              <Text style={styles.settingLabel}>
+                {language === 'it' ? 'Cronologia' : 'History'}
+              </Text>
+            </View>
+            <MaterialIcons name="chevron-right" size={24} color="#BBB" />
+          </TouchableOpacity>
+
+          <View style={{ height: 8 }} />
+
           <TouchableOpacity
             style={styles.settingItem}
             onPress={() => router.push('/favorites')}
