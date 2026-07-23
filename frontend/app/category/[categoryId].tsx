@@ -30,7 +30,16 @@ export default function CategoryDetailScreen() {
   const t = TRANSLATIONS[language];
 
   const category = CATEGORIES.find((cat) => cat.id === categoryId);
-  const keywords = categoryId ? CATEGORY_KEYWORDS[categoryId as keyof typeof CATEGORY_KEYWORDS]?.[language] || [] : [];
+  // Fallback chain: current language → English → Italian → []
+  // Prevents empty keyword list when a translation is missing for a language.
+  const keywordMap = categoryId
+    ? CATEGORY_KEYWORDS[categoryId as keyof typeof CATEGORY_KEYWORDS]
+    : undefined;
+  const keywords =
+    (keywordMap && (keywordMap as any)[language]) ||
+    (keywordMap && (keywordMap as any).en) ||
+    (keywordMap && (keywordMap as any).it) ||
+    [];
 
   useEffect(() => {
     if (isRecording) {
