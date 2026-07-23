@@ -91,20 +91,20 @@ export const CATEGORY_KEYWORDS = {
   },
   gare_appalto: {
     it: [
-      { icon: 'construction', text: 'TIPO DI APPALTO' },
-      { icon: 'euro', text: 'IMPORTO' },
-      { icon: 'business', text: 'ENTE APPALTANTE' },
+      { icon: 'construction', text: "TIPO DI APPALTO O FONDO" },
+      { icon: 'euro', text: 'IMPORTO / STANZIAMENTO' },
+      { icon: 'business', text: 'ENTE APPALTANTE / EROGANTE' },
       { icon: 'category', text: 'SETTORE' },
       { icon: 'calendar-today', text: 'SCADENZA PRESENTAZIONE' },
-      { icon: 'more-horiz', text: 'ALTRO (CIG, categoria lavori...)' },
+      { icon: 'more-horiz', text: 'ALTRO (CIG, categoria lavori, fondo regionale/statale...)' },
     ],
     en: [
-      { icon: 'construction', text: 'CONTRACT TYPE' },
-      { icon: 'attach-money', text: 'AMOUNT' },
-      { icon: 'business', text: 'CONTRACTING ENTITY' },
+      { icon: 'construction', text: 'CONTRACT OR FUND TYPE' },
+      { icon: 'attach-money', text: 'AMOUNT / ALLOCATION' },
+      { icon: 'business', text: 'CONTRACTING ENTITY / FUND PROVIDER' },
       { icon: 'category', text: 'SECTOR' },
       { icon: 'calendar-today', text: 'SUBMISSION DEADLINE' },
-      { icon: 'more-horiz', text: 'OTHER (CIG, work category...)' },
+      { icon: 'more-horiz', text: 'OTHER (CIG, work category, state/regional fund...)' },
     ],
   },
   finanza: {

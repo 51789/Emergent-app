@@ -4,7 +4,7 @@ export const CATEGORIES: Category[] = [
   { id: 'immobili', label: 'IMMOBILI', icon: 'home' },
   { id: 'bandi', label: 'BANDI DI CONCORSO', icon: 'description' },
   { id: 'auto_moto', label: 'AUTO E MOTO', icon: 'directions-car' },
-  { id: 'gare_appalto', label: "GARE D'APPALTO", icon: 'gavel' },
+  { id: 'gare_appalto', label: "GARE D'APPALTO / FONDI STATALI E REGIONALI", icon: 'gavel' },
   { id: 'divertimento', label: 'DIVERTIMENTO', icon: 'celebration' },
   { id: 'finanza', label: 'FINANZA', icon: 'trending-up' },
   { id: 'nuove_leggi', label: 'NUOVE LEGGI', icon: 'policy' },

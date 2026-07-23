@@ -218,15 +218,19 @@ class TenderAgent(SpecializedAgent):
 
 
 class ContractAgent(SpecializedAgent):
-    """Agent specialized in public contracts (GARE D'APPALTO)"""
+    """Agent specialized in public contracts and state/regional funds
+    (GARE D'APPALTO / FONDI STATALI E REGIONALI)"""
     
     def __init__(self):
         super().__init__("contract")
     
     def _get_system_message(self) -> str:
-        return """Sei un esperto di gare d'appalto pubbliche. 
-        Analizza le richieste estraendo: tipo di appalto, importo, settore, ente appaltante, requisiti. 
-        Fornisci parole chiave per portali di gare pubbliche."""
+        return """Sei un esperto di gare d'appalto pubbliche e di fondi statali e regionali. 
+        Analizza le richieste estraendo: tipo di appalto o fondo (bando, contributo, sovvenzione), 
+        importo o stanziamento, settore, ente appaltante o ente erogante (Ministero, Regione, Comune, GSE, 
+        Invitalia, ecc.), requisiti, scadenze, e area geografica di applicazione (nazionale, regionale). 
+        Fornisci parole chiave per portali di gare pubbliche (acquistinretepa, ANAC) e per fondi (Bandi Regione, 
+        Ministero, Simest, Invitalia, PNRR)."""
 
 
 class FinanceAgent(SpecializedAgent):
@@ -284,7 +288,7 @@ async def generate_ai_results(query: str, category: str, language: str = "it") -
         "divertimento": "eventi, spettacoli, attività ricreative",
         "nuove_leggi": "nuove leggi e normative italiane",
         "bandi": "bandi di concorso pubblici",
-        "gare_appalto": "gare d'appalto pubbliche",
+        "gare_appalto": "gare d'appalto pubbliche E fondi statali/regionali (contributi, sovvenzioni, PNRR, Simest, Invitalia)",
         "finanza": "opportunità di investimento e finanza",
         "lavoro": "offerte di lavoro e posizioni aperte",
     }
@@ -295,7 +299,7 @@ async def generate_ai_results(query: str, category: str, language: str = "it") -
         "divertimento": "ticketone.it, mailticket.it, boxol.it",
         "nuove_leggi": "gazzettaufficiale.it, normattiva.it",
         "bandi": "concorsipubblici.com, gazzettaufficiale.it",
-        "gare_appalto": "acquistinretepa.it, mit.gov.it",
+        "gare_appalto": "acquistinretepa.it, mit.gov.it, invitalia.it, simest.it, bandi.regione.[nome].it, ANAC",
         "finanza": "borsaitaliana.it, milanofinanza.it",
         "lavoro": "linkedin.com/jobs, indeed.it, infojobs.it",
     }
@@ -310,7 +314,7 @@ async def generate_ai_results(query: str, category: str, language: str = "it") -
         "divertimento": '"Organizzatore Ufficiale" | "Rivenditore Autorizzato" | "Privato"',
         "nuove_leggi": '"Ente Pubblico"',
         "bandi": '"Ente Pubblico"',
-        "gare_appalto": '"Ente Pubblico" | "Amministrazione Locale"',
+        "gare_appalto": '"Ente Pubblico" | "Amministrazione Locale" | "Regione" | "Ministero" | "Ente Erogante Fondi"',
         "finanza": '"Istituto Finanziario" | "Broker Autorizzato" | "Privato"',
         "lavoro": '"Azienda" | "Agenzia per il Lavoro" | "Ente Pubblico" | "Privato"',
     }
