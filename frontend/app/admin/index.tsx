@@ -152,9 +152,10 @@ export default function AdminHomeScreen() {
           />
           <NavItem
             icon="insights"
-            label="Analytics (in arrivo)"
+            label="Analytics"
             subtitle="Grafici e KPI con filtri temporali custom"
-            disabled
+            onPress={() => router.push('/admin/analytics')}
+            testID="admin-nav-analytics"
           />
           <NavItem
             icon="credit-card"

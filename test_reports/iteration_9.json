@@ -1,0 +1,37 @@
+{
+  "summary": "Backend-only test of new admin analytics endpoints (/api/admin/analytics/overview, /timeseries, /categories). Created /app/backend/tests/test_analytics.py with 24 tests covering auth guards, KPI shape, plan_distribution, revenue formula (PLAN_PRICES: pro=2.99 / premium=4.99), all range presets (realtime, week, month, quarter, semester, year), custom range with from/to ISO datetimes, bucket auto-selection (realtime->hour, week/month->day, quarter/semester->week, year->month), zero-fill points, invalid metric -> 400, categories sort DESC. All 24 analytics tests PASSED. Regression test_auth_admin_push.py: 25/25 PASSED (no regression on auth, admin CRUD, push, notifications, search).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_analytics.py",
+    "/app/test_reports/pytest/analytics_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is 1507 lines — approaching the 700-line threshold. Consider splitting the analytics helpers (_parse_iso, _resolve_range, _bucket_key, _iter_buckets) and route handlers into a dedicated /app/backend/routers/analytics.py module for maintainability.",
+    "Estimated monthly revenue uses `plan_status == active` as a proxy but does not consider whether the sub is monthly vs annual — for annual subs, monthly proxy should be annual_price/12. Currently every active pro/premium is billed at monthly price regardless of billing cycle. Acceptable as MVP proxy (comment in code confirms), but flag for future accuracy.",
+    "In _resolve_range, presets use fixed timedelta (e.g., quarter=90d, year=365d) which drift for months with 28-31 days and leap years. Fine for MVP dashboard, worth noting.",
+    "categories endpoint uses $lookup on searches collection — for large datasets this may be slow; consider caching or denormalising category on results docs.",
+    "range query param uses Python reserved-ish name `range` (shadows builtin) — cosmetic, no functional issue since it's a local param."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_analytics.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (24/24 analytics + 25/25 regression = 49/49)",
+    "frontend": "not tested (backend-only request)"
+  },
+  "seed_data_creation": "Created one throwaway regular user via /api/auth/register (email analytics_test_<uuid>@example.com) to verify 403 on non-admin access. No admin/prod data modified.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Analytics endpoints are stable and fully covered by test_analytics.py. Reuse this file for future regression on the analytics module. Next iteration should focus on the frontend dashboard UI (charts, calendar filter) since the backend is green.",
+  "rca_of_issue": "N/A — no failures detected."
+}
