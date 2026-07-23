@@ -82,7 +82,7 @@ export default function HomeScreen() {
   );
 
   const handleBellPress = () => {
-    router.push('/history');
+    router.push('/notifications');
   };
 
   return (

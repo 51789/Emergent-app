@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
 import json
 import asyncio
+import httpx
 
 
 ROOT_DIR = Path(__file__).parent
@@ -26,6 +27,16 @@ db = client[os.environ['DB_NAME']]
 # Get API keys
 EMERGENT_LLM_KEY = os.getenv('EMERGENT_LLM_KEY')
 SERPER_API_KEY = os.getenv('SERPER_API_KEY', '')
+
+# ---------- Emergent Push Notifications (SuprSend relay) ----------
+PUSH_BASE_URL = "https://integrations.emergentagent.com"
+PUSH_KEY = os.environ.get("EMERGENT_PUSH_KEY", "placeholder")
+
+_push_client = httpx.AsyncClient(
+    base_url=PUSH_BASE_URL,
+    headers={"X-Push-Key": PUSH_KEY},
+    timeout=10.0,
+)
 
 # Create the main app without a prefix
 app = FastAPI()
@@ -480,6 +491,148 @@ async def mark_search_results_viewed(search_id: str):
     }
 
 
+@api_router.get("/notifications/unviewed")
+async def get_unviewed_notifications():
+    """Return the list of all unread search results with their category info.
+    Used by the dedicated Notifications screen (bell icon)."""
+    pipeline = [
+        {"$match": {"viewed": False}},
+        {"$lookup": {
+            "from": "searches",
+            "localField": "search_id",
+            "foreignField": "id",
+            "as": "search",
+        }},
+        {"$unwind": {"path": "$search", "preserveNullAndEmptyArrays": True}},
+        {"$sort": {"created_at": -1}},
+        {"$project": {
+            "_id": 0,
+            "id": 1,
+            "search_id": 1,
+            "title": 1,
+            "summary": 1,
+            "keywords": 1,
+            "source_link": 1,
+            "contacts": 1,
+            "seller_type": 1,
+            "status": 1,
+            "posted_date": 1,
+            "expiry_date": 1,
+            "created_at": 1,
+            "viewed": 1,
+            "is_favorite": 1,
+            "category": "$search.category",
+            "query": "$search.query",
+        }},
+    ]
+    cursor = db.results.aggregate(pipeline)
+    items: List[Dict[str, Any]] = []
+    async for doc in cursor:
+        # Ensure created_at is JSON-serializable
+        if isinstance(doc.get("created_at"), datetime):
+            doc["created_at"] = doc["created_at"].isoformat()
+        items.append(doc)
+    return items
+
+
+@api_router.post("/notifications/mark-all-viewed")
+async def mark_all_notifications_viewed():
+    """Mark ALL unread results as viewed. Used when the user opens the
+    Notifications screen and later dismisses it, or explicitly taps 'clear'."""
+    res = await db.results.update_many(
+        {"viewed": False},
+        {"$set": {"viewed": True}},
+    )
+    return {"updated_count": res.modified_count}
+
+
+# ==================== PUSH NOTIFICATIONS ====================
+class RegisterPushBody(BaseModel):
+    user_id: str
+    platform: str   # "android" | "ios"
+    device_token: str
+
+
+@api_router.post("/register-push", status_code=201)
+async def register_push(body: RegisterPushBody):
+    """Register a device push token via the Emergent managed relay (SuprSend).
+
+    Always persists the (user_id, platform, device_token) locally so that
+    `send_push` has recipients even when the EMERGENT_PUSH_KEY is still a
+    placeholder (dev/preview). The relay call is best-effort in that case."""
+    # Local upsert first — idempotent, keyed by (user_id, platform)
+    await db.push_tokens.update_one(
+        {"user_id": body.user_id, "platform": body.platform},
+        {"$set": {
+            "user_id": body.user_id,
+            "platform": body.platform,
+            "device_token": body.device_token,
+            "updated_at": datetime.utcnow(),
+        }},
+        upsert=True,
+    )
+
+    # Attempt to relay to Emergent push provider
+    try:
+        resp = await _push_client.post(
+            "/api/v1/push/users/register",
+            json=body.model_dump(),
+        )
+        if resp.status_code == 401:
+            # Placeholder key or misconfigured — deployment pipeline will fix.
+            logging.info("register_push: EMERGENT_PUSH_KEY placeholder/invalid, saved locally only")
+            return {"status": "queued", "note": "push key not yet configured"}
+        if resp.status_code >= 500:
+            logging.warning("register_push: relay unavailable, saved locally only")
+            return {"status": "queued", "note": "relay unavailable"}
+        resp.raise_for_status()
+        return {"status": "registered"}
+    except Exception as e:
+        logging.warning(f"register_push relay failed (saved locally): {e}")
+        return {"status": "queued", "note": "relay error"}
+
+
+async def send_push(
+    recipients: List[str],
+    data: Dict[str, Any],
+    idempotency_key: Optional[str] = None,
+) -> None:
+    """Trigger a push notification via the Emergent relay.
+    Never blocks the caller — errors are logged but not raised upstream."""
+    if not recipients:
+        return
+    if len(recipients) > 100:
+        # Chunk to keep the relay happy
+        for i in range(0, len(recipients), 100):
+            await send_push(recipients[i : i + 100], data, idempotency_key)
+        return
+    if "title" not in data or "message" not in data:
+        raise ValueError("send_push data must include 'title' and 'message'")
+
+    payload: Dict[str, Any] = {"recipients": recipients, "data": data}
+    if idempotency_key:
+        payload["$idempotency_key"] = idempotency_key
+
+    resp = await _push_client.post("/api/v1/push/trigger", json=payload)
+    if resp.status_code == 401:
+        raise HTTPException(500, "EMERGENT_PUSH_KEY missing or invalid")
+    if resp.status_code >= 500:
+        raise HTTPException(502, "Push provider unavailable")
+    resp.raise_for_status()
+
+
+async def _get_all_recipient_ids() -> List[str]:
+    """Return all known user_ids that registered a push token.
+    In this app (no auth), we broadcast to every registered device user_id."""
+    ids: List[str] = []
+    cursor = db.push_tokens.find({}, {"_id": 0, "user_id": 1})
+    async for doc in cursor:
+        uid = doc.get("user_id")
+        if uid and uid not in ids:
+            ids.append(uid)
+    return ids
+
+
 @api_router.get("/search/active/counts")
 async def get_active_search_counts_per_category():
     """Get active search count per category, for the home screen."""
@@ -661,7 +814,31 @@ async def process_search_query(input: SearchQueryCreate):
             )
             await db.results.insert_one(search_result.dict())
             saved_results.append(search_result.dict())
-        
+
+        # Fire a native push notification (non-blocking) so users are alerted
+        # to new announcements even when the app is in the background.
+        try:
+            recipients = await _get_all_recipient_ids()
+            if recipients and saved_results:
+                first = saved_results[0]
+                count = len(saved_results)
+                title = f"JARVIS · {input.category}"
+                if count == 1:
+                    message = first.get("title") or input.query
+                else:
+                    message = f"{count} nuovi annunci per: {input.query}"
+                await send_push(
+                    recipients=recipients,
+                    data={
+                        "title": title[:80],
+                        "message": message[:180],
+                        "action_url": "/notifications",
+                    },
+                    idempotency_key=f"search-{search_obj.id}",
+                )
+        except Exception as push_err:
+            logging.warning(f"Push notification failed (non-blocking): {push_err}")
+
         return {
             "search_id": search_obj.id,
             "agent_type": agent.agent_type,

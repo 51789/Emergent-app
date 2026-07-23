@@ -128,4 +128,20 @@ export const api = {
     if (!response.ok) throw new Error('Failed to fetch favorites');
     return response.json();
   },
+
+  // Get all unread results (for the dedicated Notifications screen)
+  async getUnviewedResults(): Promise<any[]> {
+    const response = await fetch(`${BASE_URL}/notifications/unviewed`);
+    if (!response.ok) throw new Error('Failed to fetch notifications');
+    return response.json();
+  },
+
+  // Mark ALL unread results as read
+  async markAllNotificationsViewed(): Promise<{ updated_count: number }> {
+    const response = await fetch(`${BASE_URL}/notifications/mark-all-viewed`, {
+      method: 'POST',
+    });
+    if (!response.ok) throw new Error('Failed to clear notifications');
+    return response.json();
+  },
 };
