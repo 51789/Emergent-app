@@ -7,6 +7,8 @@ import {
   StyleSheet,
   SafeAreaView,
   Alert,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -21,7 +23,9 @@ export default function SettingsScreen() {
   const { language, setLanguage } = useAppStore();
   const { user, signOut } = useAuth();
   const [apiStatus, setApiStatus] = useState<any>(null);
+  const [langOpen, setLangOpen] = useState(false);
   const t = TRANSLATIONS[language];
+  const currentLang = LANGUAGES.find((l) => l.code === language) || LANGUAGES[0];
 
   useEffect(() => {
     checkApiHealth();
@@ -160,41 +164,23 @@ export default function SettingsScreen() {
           )}
         </View>
 
-        {/* Language Section */}
+        {/* Language Section — collapsed selector with dropdown */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t.language}</Text>
-          <View style={styles.languageList}>
-            {LANGUAGES.map((lang, idx) => {
-              const active = language === lang.code;
-              return (
-                <TouchableOpacity
-                  key={lang.code}
-                  style={[
-                    styles.langRow,
-                    idx !== LANGUAGES.length - 1 && styles.langRowDivider,
-                    active && styles.langRowActive,
-                  ]}
-                  onPress={() => setLanguage(lang.code)}
-                  activeOpacity={0.7}
-                  testID={`lang-${lang.code}`}
-                >
-                  <View style={styles.langLeft}>
-                    <FlagCircle flag={lang.flag} size={30} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.langLabel}>{lang.nativeLabel}</Text>
-                    </View>
-                  </View>
-                  {active ? (
-                    <View style={styles.checkedCircle}>
-                      <MaterialIcons name="check" size={14} color="#FFF" />
-                    </View>
-                  ) : (
-                    <View style={styles.uncheckedCircle} />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          <TouchableOpacity
+            style={styles.languageSelector}
+            onPress={() => setLangOpen(true)}
+            activeOpacity={0.7}
+            testID="language-selector"
+          >
+            <View style={styles.langLeft}>
+              <FlagCircle flag={currentLang.flag} size={30} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.langLabel}>{currentLang.nativeLabel}</Text>
+              </View>
+            </View>
+            <MaterialIcons name="arrow-drop-down" size={26} color="#888" />
+          </TouchableOpacity>
         </View>
 
         {/* Ricerche section — Cronologia + Preferiti */}
@@ -327,6 +313,52 @@ export default function SettingsScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Language picker modal */}
+      <Modal
+        visible={langOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLangOpen(false)}
+      >
+        <Pressable style={styles.langModalOverlay} onPress={() => setLangOpen(false)}>
+          <Pressable style={styles.langModalCard} onPress={() => { /* prevent close */ }}>
+            <View style={styles.langModalHeader}>
+              <Text style={styles.langModalTitle}>{t.language}</Text>
+              <TouchableOpacity onPress={() => setLangOpen(false)}>
+                <MaterialIcons name="close" size={22} color="#666" />
+              </TouchableOpacity>
+            </View>
+            {LANGUAGES.map((lang, idx) => {
+              const active = language === lang.code;
+              return (
+                <TouchableOpacity
+                  key={lang.code}
+                  style={[
+                    styles.langModalRow,
+                    idx !== LANGUAGES.length - 1 && styles.langModalRowDivider,
+                    active && styles.langModalRowActive,
+                  ]}
+                  onPress={() => {
+                    setLanguage(lang.code);
+                    setLangOpen(false);
+                  }}
+                  activeOpacity={0.7}
+                  testID={`lang-${lang.code}`}
+                >
+                  <FlagCircle flag={lang.flag} size={28} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.langLabel}>{lang.nativeLabel}</Text>
+                  </View>
+                  {active && (
+                    <MaterialIcons name="check-circle" size={20} color="#007AFF" />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -519,6 +551,60 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderRadius: 12,
     overflow: 'hidden',
+  },
+  languageSelector: {
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  langModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  langModalCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    overflow: 'hidden',
+    boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+    elevation: 8,
+  },
+  langModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#EEE',
+  },
+  langModalTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#111',
+  },
+  langModalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  langModalRowDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#F5F5F5',
+  },
+  langModalRowActive: {
+    backgroundColor: '#F5F9FF',
   },
   langRow: {
     flexDirection: 'row',
