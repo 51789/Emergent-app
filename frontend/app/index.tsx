@@ -319,18 +319,15 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   categoryCountBadge: {
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
     minWidth: 24,
-    height: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
   },
   categoryCountText: {
-    color: '#FFF',
-    fontSize: 12,
-    fontWeight: '700',
+    color: '#007AFF',
+    fontSize: 16,
+    fontWeight: '800',
   },
   newBadge: {
     backgroundColor: '#FF3B30',
