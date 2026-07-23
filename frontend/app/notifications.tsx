@@ -14,7 +14,7 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { api } from '../src/services/api';
-import { CATEGORIES } from '../src/constants/categories';
+import { CATEGORIES, TRANSLATIONS, getCategoryLabel } from '../src/constants/categories';
 import { useAppStore } from '../src/store';
 
 type NotificationItem = {
@@ -55,7 +55,8 @@ export default function NotificationsScreen() {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const { setNotifications } = useAppStore();
+  const { setNotifications, language } = useAppStore();
+  const t = TRANSLATIONS[language];
 
   const load = useCallback(async () => {
     try {
@@ -93,12 +94,12 @@ export default function NotificationsScreen() {
   const handleMarkAllRead = () => {
     if (items.length === 0) return;
     Alert.alert(
-      'Segna tutti come letti',
-      'Vuoi contrassegnare tutte le notifiche come lette?',
+      t.markAllAsRead,
+      t.markAllAsReadConfirm,
       [
-        { text: 'Annulla', style: 'cancel' },
+        { text: t.cancel, style: 'cancel' },
         {
-          text: 'Conferma',
+          text: t.confirm,
           style: 'destructive',
           onPress: async () => {
             try {
@@ -145,7 +146,7 @@ export default function NotificationsScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <MaterialIcons name="arrow-back" size={26} color="#333" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Notifiche</Text>
+          <Text style={styles.headerTitle}>{t.notifications}</Text>
           <View style={{ width: 44 }} />
         </View>
         <View style={styles.centerFill}>
@@ -167,7 +168,7 @@ export default function NotificationsScreen() {
           <MaterialIcons name="arrow-back" size={26} color="#333" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Notifiche</Text>
+          <Text style={styles.headerTitle}>{t.notifications}</Text>
           {items.length > 0 && (
             <View style={styles.headerBadge}>
               <Text style={styles.headerBadgeText}>{items.length}</Text>
@@ -192,8 +193,8 @@ export default function NotificationsScreen() {
       <View style={styles.subtitleWrap}>
         <Text style={styles.subtitle}>
           {items.length === 0
-            ? 'Nessuna nuova notifica'
-            : `${items.length} ${items.length === 1 ? 'nuovo annuncio non letto' : 'nuovi annunci non letti'}`}
+            ? t.noNewNotifications
+            : `${items.length} ${items.length === 1 ? t.newAnnouncementSingular : t.newAnnouncementPlural}`}
         </Text>
       </View>
 
@@ -208,10 +209,8 @@ export default function NotificationsScreen() {
         {items.length === 0 ? (
           <View style={styles.emptyState} testID="notifications-empty">
             <MaterialIcons name="notifications-off" size={64} color="#CCC" />
-            <Text style={styles.emptyTitle}>Tutto letto!</Text>
-            <Text style={styles.emptyText}>
-              Ti avviseremo qui appena JARVIS troverà nuovi annunci per le tue ricerche attive.
-            </Text>
+            <Text style={styles.emptyTitle}>{t.notificationsEmpty}</Text>
+            <Text style={styles.emptyText}>{t.notificationsEmptyText}</Text>
           </View>
         ) : (
           items.map((item) => {
@@ -231,7 +230,7 @@ export default function NotificationsScreen() {
                       <MaterialIcons name={meta.icon} size={14} color="#007AFF" />
                     )}
                     <Text style={styles.categoryChipText} numberOfLines={1}>
-                      {meta?.label || item.category || 'RICERCA'}
+                      {meta ? getCategoryLabel(meta.id, language) : (item.category || t.searchSingular.toUpperCase())}
                     </Text>
                   </View>
                   <View style={styles.newDot} />
@@ -267,7 +266,7 @@ export default function NotificationsScreen() {
                     <View style={[styles.metaChip, styles.expiryChip]}>
                       <MaterialIcons name="event-busy" size={12} color="#D14343" />
                       <Text style={[styles.metaChipText, styles.expiryText]}>
-                        Scade: {item.expiry_date}
+                        {t.expires}: {item.expiry_date}
                       </Text>
                     </View>
                   )}

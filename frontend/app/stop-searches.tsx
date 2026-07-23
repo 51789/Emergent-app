@@ -14,16 +14,16 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { api } from '../src/services/api';
 import { useAppStore } from '../src/store';
-import { CATEGORIES } from '../src/constants/categories';
+import { CATEGORIES, TRANSLATIONS, getCategoryLabel } from '../src/constants/categories';
 import { SearchQuery } from '../src/types';
 
 const getCategoryMeta = (categoryId: string) =>
   CATEGORIES.find((c) => c.id === categoryId) || null;
 
-const formatDate = (iso: string): string => {
+const formatDate = (iso: string, locale: string): string => {
   try {
     const d = new Date(iso);
-    return d.toLocaleDateString('it-IT', {
+    return d.toLocaleDateString(locale, {
       day: '2-digit',
       month: 'short',
       hour: '2-digit',
@@ -40,7 +40,9 @@ export default function StopSearchesScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pausing, setPausing] = useState(false);
-  const { setNotifications } = useAppStore();
+  const { setNotifications, language } = useAppStore();
+  const t = TRANSLATIONS[language];
+  const locale = language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : language === 'fr' ? 'fr-FR' : language === 'de' ? 'de-DE' : 'it-IT';
 
   const load = useCallback(async () => {
     try {
@@ -88,18 +90,17 @@ export default function StopSearchesScreen() {
     if (selected.size === 0) return;
     const count = selected.size;
     Alert.alert(
-      'Interrompi ricerche',
-      `Vuoi disattivare ${count} ${count === 1 ? 'ricerca' : 'ricerche'}? La cronologia e i risultati rimarranno visibili, ma le ricerche non saranno più monitorate.`,
+      t.stopSearchTitle,
+      t.stopSearchesConfirmMany.replace('{count}', String(count)),
       [
-        { text: 'Annulla', style: 'cancel' },
+        { text: t.cancel, style: 'cancel' },
         {
-          text: `Disattiva ${count}`,
+          text: `${t.disable} ${count}`,
           style: 'destructive',
           onPress: async () => {
             setPausing(true);
             try {
               await api.toggleActiveMany(Array.from(selected), false);
-              // Refresh badge counts on home
               try {
                 const counts = await api.getActiveSearchCounts();
                 setNotifications(counts);
@@ -109,11 +110,13 @@ export default function StopSearchesScreen() {
               setSelected(new Set());
               await load();
               Alert.alert(
-                '✓ Ricerche interrotte',
-                `${count} ${count === 1 ? 'ricerca disattivata' : 'ricerche disattivate'} con successo.`
+                `✓ ${t.stopSearchesDone}`,
+                count === 1
+                  ? t.stopSearchesDoneOne
+                  : t.stopSearchesDoneMany.replace('{count}', String(count))
               );
             } catch (err: any) {
-              Alert.alert('Errore', err?.message || 'Impossibile interrompere le ricerche.');
+              Alert.alert(t.error, err?.message || t.tryAgain);
             } finally {
               setPausing(false);
             }
@@ -134,12 +137,12 @@ export default function StopSearchesScreen() {
           <MaterialIcons name="arrow-back" size={26} color="#333" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.title}>Interrompi ricerche</Text>
+          <Text style={styles.title}>{t.stopSearchTitle}</Text>
           {searches.length > 0 && (
             <Text style={styles.subtitle}>
               {selected.size > 0
-                ? `${selected.size} selezionat${selected.size === 1 ? 'a' : 'e'}`
-                : `${searches.length} ricerch${searches.length === 1 ? 'a' : 'e'} attiv${searches.length === 1 ? 'a' : 'e'}`}
+                ? `${selected.size} ${selected.size === 1 ? t.selected : t.selectedMany}`
+                : `${searches.length} ${searches.length === 1 ? t.searchSingular : t.searchPlural} ${searches.length === 1 ? t.activeSingular : t.activePlural}`}
             </Text>
           )}
         </View>
@@ -164,21 +167,17 @@ export default function StopSearchesScreen() {
       ) : searches.length === 0 ? (
         <View style={styles.emptyState}>
           <MaterialIcons name="pause-circle-outline" size={64} color="#CCC" />
-          <Text style={styles.emptyTitle}>Nessuna ricerca attiva</Text>
-          <Text style={styles.emptyText}>
-            Al momento non ci sono ricerche in monitoraggio da interrompere.
-          </Text>
+          <Text style={styles.emptyTitle}>{t.stopEmptyTitle}</Text>
+          <Text style={styles.emptyText}>{t.stopEmptyText}</Text>
           <TouchableOpacity onPress={() => router.replace('/')} style={styles.emptyBtn}>
-            <Text style={styles.emptyBtnText}>Torna alla home</Text>
+            <Text style={styles.emptyBtnText}>{t.backHome}</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <>
           <View style={styles.hintBar}>
             <MaterialIcons name="info-outline" size={14} color="#666" />
-            <Text style={styles.hintText}>
-              Seleziona le ricerche che vuoi disattivare. La cronologia sarà conservata.
-            </Text>
+            <Text style={styles.hintText}>{t.stopSearchHint}</Text>
           </View>
 
           <ScrollView
@@ -211,18 +210,18 @@ export default function StopSearchesScreen() {
                   <View style={styles.rowContent}>
                     <View style={styles.rowTopRow}>
                       <Text style={styles.rowCategory}>
-                        {meta?.label || s.category.toUpperCase()}
+                        {meta ? getCategoryLabel(meta.id, language) : s.category.toUpperCase()}
                       </Text>
                       <View style={styles.activeBadge}>
                         <View style={styles.activeDot} />
-                        <Text style={styles.activeBadgeText}>ATTIVA</Text>
+                        <Text style={styles.activeBadgeText}>{t.active}</Text>
                       </View>
                     </View>
                     <Text style={styles.rowQuery} numberOfLines={2}>
                       {s.query}
                     </Text>
                     <Text style={styles.rowDate}>
-                      Avviata il {formatDate(s.created_at)}
+                      {t.startedOn} {formatDate(s.created_at, locale)}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -247,8 +246,8 @@ export default function StopSearchesScreen() {
                   <MaterialIcons name="pause-circle-filled" size={20} color="#FFF" />
                   <Text style={styles.pauseBtnText}>
                     {anySelected
-                      ? `Interrompi ${selected.size} ${selected.size === 1 ? 'ricerca' : 'ricerche'}`
-                      : 'Seleziona per interrompere'}
+                      ? `${t.stopSearches} · ${selected.size}`
+                      : t.selectAll}
                   </Text>
                 </>
               )}

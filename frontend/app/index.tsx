@@ -15,7 +15,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { CategoryButton } from '../src/components/CategoryButton';
 import { NotificationBell } from '../src/components/NotificationBell';
 import { useAppStore } from '../src/store';
-import { CATEGORIES, TRANSLATIONS, LANGUAGES } from '../src/constants/categories';
+import { CATEGORIES, TRANSLATIONS, LANGUAGES, getCategoryLabel } from '../src/constants/categories';
 import { api } from '../src/services/api';
 import { FlagCircle } from '../src/components/FlagCircle';
 
@@ -167,7 +167,7 @@ export default function HomeScreen() {
                     activeOpacity={0.6}
                   >
                     <MaterialIcons name={cat.icon} size={20} color="#007AFF" />
-                    <Text style={styles.activeSearchText}>{cat.label}</Text>
+                    <Text style={styles.activeSearchText}>{getCategoryLabel(cat.id, language)}</Text>
 
                     {/* New results badge (red) — shown only if there are unseen results in this category */}
                     {notifs > 0 && (
@@ -203,7 +203,7 @@ export default function HomeScreen() {
           activeOpacity={0.85}
         >
           <MaterialIcons name="pause-circle-outline" size={24} color="#D14343" />
-          <Text style={styles.stopButtonText}>Interrompi ricerche</Text>
+          <Text style={styles.stopButtonText}>{t.stopSearches}</Text>
         </TouchableOpacity>
       </ScrollView>
 

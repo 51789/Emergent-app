@@ -14,13 +14,13 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { api } from '../../src/services/api';
 import { useAppStore } from '../../src/store';
-import { CATEGORIES } from '../../src/constants/categories';
+import { CATEGORIES, TRANSLATIONS, getCategoryLabel } from '../../src/constants/categories';
 import { SearchQuery } from '../../src/types';
 
-const formatDate = (iso: string): string => {
+const formatDate = (iso: string, locale: string): string => {
   try {
     const d = new Date(iso);
-    return d.toLocaleDateString('it-IT', {
+    return d.toLocaleDateString(locale, {
       day: '2-digit',
       month: 'short',
       hour: '2-digit',
@@ -42,7 +42,9 @@ export default function ActiveSearchesByCategoryScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const { setNotifications } = useAppStore();
+  const { setNotifications, language } = useAppStore();
+  const t = TRANSLATIONS[language];
+  const locale = language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : language === 'fr' ? 'fr-FR' : language === 'de' ? 'de-DE' : 'it-IT';
 
   const load = useCallback(async () => {
     try {
@@ -84,12 +86,12 @@ export default function ActiveSearchesByCategoryScreen() {
 
   const pauseOne = (s: SearchQuery) => {
     Alert.alert(
-      'Interrompi ricerca',
-      `Vuoi disattivare questa ricerca?\n\n"${s.query}"\n\nLa cronologia sarà conservata.`,
+      t.disableSearchTitle,
+      `${t.disableSearchConfirm}\n\n"${s.query}"`,
       [
-        { text: 'Annulla', style: 'cancel' },
+        { text: t.cancel, style: 'cancel' },
         {
-          text: 'Disattiva',
+          text: t.disable,
           style: 'destructive',
           onPress: async () => {
             setBusyId(s.id);
@@ -98,7 +100,7 @@ export default function ActiveSearchesByCategoryScreen() {
               setSearches((prev) => prev.filter((x) => x.id !== s.id));
               refreshCounts();
             } catch (err: any) {
-              Alert.alert('Errore', err?.message || 'Impossibile disattivare');
+              Alert.alert(t.error, err?.message || t.tryAgain);
             } finally {
               setBusyId(null);
             }
@@ -121,11 +123,11 @@ export default function ActiveSearchesByCategoryScreen() {
               <MaterialIcons name={catMeta.icon} size={18} color="#007AFF" />
             )}
             <Text style={styles.title} numberOfLines={1}>
-              {catMeta?.label || (categoryId || '').toUpperCase()}
+              {catMeta ? getCategoryLabel(catMeta.id, language) : (categoryId || '').toUpperCase()}
             </Text>
           </View>
           <Text style={styles.subtitle}>
-            {searches.length} ricerch{searches.length === 1 ? 'a attiva' : 'e attive'}
+            {searches.length} {searches.length === 1 ? `${t.searchSingular} ${t.activeSingular}` : `${t.searchPlural} ${t.activePlural}`}
           </Text>
         </View>
         <TouchableOpacity
@@ -144,17 +146,15 @@ export default function ActiveSearchesByCategoryScreen() {
       ) : searches.length === 0 ? (
         <View style={styles.emptyState}>
           <MaterialIcons name="search-off" size={64} color="#CCC" />
-          <Text style={styles.emptyTitle}>Nessuna ricerca attiva</Text>
-          <Text style={styles.emptyText}>
-            Non hai ricerche in monitoraggio per questa categoria.
-          </Text>
+          <Text style={styles.emptyTitle}>{t.stopEmptyTitle}</Text>
+          <Text style={styles.emptyText}>{t.noActiveSearchesInCategory}</Text>
           <TouchableOpacity
             style={styles.startBtn}
             onPress={() => router.push(`/category/${categoryId}`)}
             testID="start-new-search"
           >
             <MaterialIcons name="add-circle" size={18} color="#FFF" />
-            <Text style={styles.startBtnText}>Avvia nuova ricerca</Text>
+            <Text style={styles.startBtnText}>{t.startNewSearch}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -177,10 +177,10 @@ export default function ActiveSearchesByCategoryScreen() {
                   <View style={styles.cardTopRow}>
                     <View style={styles.activeBadge}>
                       <View style={styles.activeDot} />
-                      <Text style={styles.activeBadgeText}>ATTIVA</Text>
+                      <Text style={styles.activeBadgeText}>{t.active}</Text>
                     </View>
                     <Text style={styles.cardDate}>
-                      {formatDate(s.created_at)}
+                      {formatDate(s.created_at, locale)}
                     </Text>
                   </View>
                   <Text style={styles.cardQuery} numberOfLines={3}>
@@ -189,7 +189,7 @@ export default function ActiveSearchesByCategoryScreen() {
                   <View style={styles.cardFooter}>
                     <View style={styles.cardActionHint}>
                       <MaterialIcons name="visibility" size={14} color="#007AFF" />
-                      <Text style={styles.cardActionHintText}>Vedi risultati</Text>
+                      <Text style={styles.cardActionHintText}>{t.viewResults}</Text>
                     </View>
                     <MaterialIcons name="chevron-right" size={20} color="#CCC" />
                   </View>

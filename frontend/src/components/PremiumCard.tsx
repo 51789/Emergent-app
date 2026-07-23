@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAppStore } from '../store';
+import { TRANSLATIONS } from '../constants/categories';
 
 interface PremiumCardProps {
   onPress: () => void;
@@ -13,7 +14,7 @@ interface PremiumCardProps {
  */
 export const PremiumCard: React.FC<PremiumCardProps> = ({ onPress }) => {
   const { language } = useAppStore();
-  const isIt = language === 'it';
+  const t = TRANSLATIONS[language];
 
   return (
     <TouchableOpacity
@@ -30,12 +31,10 @@ export const PremiumCard: React.FC<PremiumCardProps> = ({ onPress }) => {
       {/* Middle: title + subtitle */}
       <View style={styles.textWrapper}>
         <Text style={styles.title} testID="premium-title">
-          {isIt ? 'Passa a Premium' : 'Go Premium'}
+          {t.subscribeTitle}
         </Text>
         <Text style={styles.subtitle}>
-          {isIt
-            ? 'Scopri i piani e sblocca tutte le funzionalità'
-            : 'Discover plans and unlock all features'}
+          {t.subscribeSubtitle}
         </Text>
       </View>
 

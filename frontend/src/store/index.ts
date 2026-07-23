@@ -1,6 +1,9 @@
 import { create } from 'zustand';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SearchQuery } from '../types';
 import type { LanguageCode } from '../constants/categories';
+
+const LANGUAGE_KEY = 'jarvis.language';
 
 interface AppState {
   language: LanguageCode;
@@ -16,6 +19,7 @@ interface AppState {
   removeActiveSearch: (searchId: string) => void;
   setActiveCounts: (data: { total: number; per_category: Record<string, number> }) => void;
   setNotifications: (data: { total: number; per_category: Record<string, number> }) => void;
+  hydrate: () => Promise<void>;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -25,7 +29,11 @@ export const useAppStore = create<AppState>((set) => ({
   activeCounts: {},
   notificationCount: 0,
   notificationsPerCategory: {},
-  setLanguage: (lang) => set({ language: lang }),
+  setLanguage: (lang) => {
+    set({ language: lang });
+    // Persist (fire and forget)
+    AsyncStorage.setItem(LANGUAGE_KEY, lang).catch(() => {});
+  },
   toggleCategory: (categoryId) =>
     set((state) => ({
       selectedCategories: state.selectedCategories.includes(categoryId)
@@ -47,4 +55,14 @@ export const useAppStore = create<AppState>((set) => ({
       notificationCount: data.total,
       notificationsPerCategory: data.per_category,
     }),
+  hydrate: async () => {
+    try {
+      const stored = await AsyncStorage.getItem(LANGUAGE_KEY);
+      if (stored && ['it', 'en', 'es', 'fr', 'de'].includes(stored)) {
+        set({ language: stored as LanguageCode });
+      }
+    } catch {
+      // ignore
+    }
+  },
 }));

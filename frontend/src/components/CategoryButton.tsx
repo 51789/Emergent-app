@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Category } from '../types';
+import { useAppStore } from '../store';
+import { getCategoryLabel } from '../constants/categories';
 
 interface CategoryButtonProps {
   category: Category;
@@ -16,6 +18,8 @@ export const CategoryButton: React.FC<CategoryButtonProps> = ({
   onPress,
   onLongPress,
 }) => {
+  const { language } = useAppStore();
+  const label = getCategoryLabel(category.id, language);
   return (
     <TouchableOpacity
       style={[styles.button, isSelected && styles.buttonSelected]}
@@ -37,7 +41,7 @@ export const CategoryButton: React.FC<CategoryButtonProps> = ({
         style={styles.icon}
       />
       <Text style={[styles.label, isSelected && styles.labelSelected]}>
-        {category.label}
+        {label}
       </Text>
     </TouchableOpacity>
   );

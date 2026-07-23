@@ -14,11 +14,15 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../src/services/auth';
+import { useAppStore } from '../src/store';
+import { TRANSLATIONS } from '../src/constants/categories';
 
 type Mode = 'signin' | 'signup';
 
 export default function LoginScreen() {
   const { signIn, signUp } = useAuth();
+  const { language } = useAppStore();
+  const t = TRANSLATIONS[language];
   const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,10 +33,24 @@ export default function LoginScreen() {
   const isSignup = mode === 'signup';
 
   const validate = (): string | null => {
-    if (!email.trim()) return 'Inserisci la tua email';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Email non valida';
-    if (!password) return 'Inserisci la password';
-    if (isSignup && password.length < 6) return 'La password deve avere almeno 6 caratteri';
+    if (!email.trim()) return language === 'it' ? 'Inserisci la tua email' :
+      language === 'es' ? 'Ingresa tu correo' :
+      language === 'fr' ? 'Saisissez votre email' :
+      language === 'de' ? 'E-Mail eingeben' : 'Enter your email';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
+      return language === 'it' ? 'Email non valida' :
+        language === 'es' ? 'Email no válido' :
+        language === 'fr' ? 'Email invalide' :
+        language === 'de' ? 'Ungültige E-Mail' : 'Invalid email';
+    if (!password) return language === 'it' ? 'Inserisci la password' :
+      language === 'es' ? 'Ingresa la contraseña' :
+      language === 'fr' ? 'Saisissez le mot de passe' :
+      language === 'de' ? 'Passwort eingeben' : 'Enter password';
+    if (isSignup && password.length < 6)
+      return language === 'it' ? 'La password deve avere almeno 6 caratteri' :
+        language === 'es' ? 'La contraseña debe tener al menos 6 caracteres' :
+        language === 'fr' ? 'Le mot de passe doit contenir au moins 6 caractères' :
+        language === 'de' ? 'Passwort mindestens 6 Zeichen' : 'Password must be at least 6 characters';
     return null;
   };
 
@@ -52,7 +70,11 @@ export default function LoginScreen() {
       }
       router.replace('/');
     } catch (e: any) {
-      setError(e?.message || 'Errore. Riprova.');
+      setError(e?.message ||
+        (language === 'it' ? 'Errore. Riprova.' :
+         language === 'es' ? 'Error. Reintenta.' :
+         language === 'fr' ? 'Erreur. Réessayez.' :
+         language === 'de' ? 'Fehler. Erneut versuchen.' : 'Error. Try again.'));
     } finally {
       setLoading(false);
     }
@@ -87,12 +109,10 @@ export default function LoginScreen() {
             </View>
             <Text style={styles.brand}>JARVIS</Text>
             <Text style={styles.title}>
-              {isSignup ? 'Crea il tuo account' : 'Bentornato'}
+              {isSignup ? t.createAccount : t.welcomeBack}
             </Text>
             <Text style={styles.subtitle}>
-              {isSignup
-                ? 'Registrati per gestire il tuo piano e le tue ricerche'
-                : 'Accedi al tuo account per continuare'}
+              {isSignup ? t.signUpSubtitle : t.signInSubtitle}
             </Text>
           </View>
 
@@ -103,7 +123,7 @@ export default function LoginScreen() {
               <TextInput
                 value={email}
                 onChangeText={setEmail}
-                placeholder="tuaemail@esempio.com"
+                placeholder={t.emailPlaceholder}
                 placeholderTextColor="#AAA"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -119,7 +139,7 @@ export default function LoginScreen() {
               <TextInput
                 value={password}
                 onChangeText={setPassword}
-                placeholder="Password"
+                placeholder={t.passwordPlaceholder}
                 placeholderTextColor="#AAA"
                 secureTextEntry={!showPw}
                 autoCapitalize="none"
@@ -159,7 +179,7 @@ export default function LoginScreen() {
               ) : (
                 <>
                   <Text style={styles.primaryBtnText}>
-                    {isSignup ? 'Crea account' : 'Accedi'}
+                    {isSignup ? t.signUp : t.signIn}
                   </Text>
                   <MaterialIcons name="arrow-forward" size={18} color="#FFF" />
                 </>
@@ -175,9 +195,9 @@ export default function LoginScreen() {
               testID="login-toggle-mode"
             >
               <Text style={styles.switchText}>
-                {isSignup ? 'Hai già un account?' : 'Non hai un account?'}{' '}
+                {isSignup ? t.haveAccount : t.noAccount}{' '}
                 <Text style={styles.switchLink}>
-                  {isSignup ? 'Accedi' : 'Registrati'}
+                  {isSignup ? t.signIn : t.signUp}
                 </Text>
               </Text>
             </TouchableOpacity>

@@ -57,7 +57,7 @@ export default function SettingsScreen() {
         {/* Account Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
-            {language === 'it' ? 'Account' : 'Account'}
+            {t.account}
           </Text>
           {user ? (
             <>
@@ -108,7 +108,7 @@ export default function SettingsScreen() {
                   <View style={styles.settingInfo}>
                     <MaterialIcons name="dashboard" size={24} color="#B8860B" />
                     <Text style={styles.settingLabel}>
-                      {language === 'it' ? 'Pannello Admin' : 'Admin Panel'}
+                      {t.adminPanel}
                     </Text>
                   </View>
                   <MaterialIcons name="chevron-right" size={24} color="#BBB" />
@@ -119,14 +119,12 @@ export default function SettingsScreen() {
                 style={[styles.settingItem, { marginTop: 8 }]}
                 onPress={() => {
                   Alert.alert(
-                    language === 'it' ? 'Disconnetti' : 'Sign out',
-                    language === 'it'
-                      ? 'Sei sicuro di voler uscire?'
-                      : 'Are you sure you want to sign out?',
+                    t.signOut,
+                    t.signOutConfirm,
                     [
-                      { text: language === 'it' ? 'Annulla' : 'Cancel', style: 'cancel' },
+                      { text: t.cancel, style: 'cancel' },
                       {
-                        text: language === 'it' ? 'Esci' : 'Sign out',
+                        text: t.exit,
                         style: 'destructive',
                         onPress: async () => {
                           await signOut();
@@ -142,7 +140,7 @@ export default function SettingsScreen() {
                 <View style={styles.settingInfo}>
                   <MaterialIcons name="logout" size={24} color="#D14343" />
                   <Text style={[styles.settingLabel, { color: '#D14343' }]}>
-                    {language === 'it' ? 'Disconnetti' : 'Sign out'}
+                    {t.signOut}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -156,7 +154,7 @@ export default function SettingsScreen() {
             >
               <MaterialIcons name="login" size={20} color="#FFF" />
               <Text style={styles.loginBtnText}>
-                {language === 'it' ? 'Accedi / Registrati' : 'Sign in / Register'}
+                {t.signInRegister}
               </Text>
             </TouchableOpacity>
           )}
@@ -183,20 +181,7 @@ export default function SettingsScreen() {
                   <View style={styles.langLeft}>
                     <FlagCircle flag={lang.flag} size={30} />
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.langLabel}>
-                        {language === 'it'
-                          ? lang.label
-                          : language === 'en' && lang.code === 'it'
-                          ? 'Italian'
-                          : language === 'en' && lang.code === 'es'
-                          ? 'Spanish'
-                          : language === 'en' && lang.code === 'fr'
-                          ? 'French'
-                          : language === 'en' && lang.code === 'de'
-                          ? 'German'
-                          : lang.label}
-                      </Text>
-                      <Text style={styles.langNative}>{lang.nativeLabel}</Text>
+                      <Text style={styles.langLabel}>{lang.nativeLabel}</Text>
                     </View>
                   </View>
                   {active ? (
@@ -215,7 +200,7 @@ export default function SettingsScreen() {
         {/* Ricerche section — Cronologia + Preferiti */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
-            {language === 'it' ? 'Ricerche' : 'Searches'}
+            {t.ricercheSection}
           </Text>
           <TouchableOpacity
             style={styles.settingItem}
@@ -226,7 +211,7 @@ export default function SettingsScreen() {
             <View style={styles.settingInfo}>
               <MaterialIcons name="history" size={24} color="#007AFF" />
               <Text style={styles.settingLabel}>
-                {language === 'it' ? 'Cronologia' : 'History'}
+                {t.history}
               </Text>
             </View>
             <MaterialIcons name="chevron-right" size={24} color="#BBB" />
@@ -243,7 +228,7 @@ export default function SettingsScreen() {
             <View style={styles.settingInfo}>
               <MaterialIcons name="star" size={24} color="#FFC107" />
               <Text style={styles.settingLabel}>
-                {language === 'it' ? 'Preferiti' : 'Favorites'}
+                {t.favorites}
               </Text>
             </View>
             <MaterialIcons name="chevron-right" size={24} color="#BBB" />
@@ -257,9 +242,7 @@ export default function SettingsScreen() {
 
         {/* System Status Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            {language === 'it' ? 'Stato Sistema' : 'System Status'}
-          </Text>
+          <Text style={styles.sectionTitle}>{t.systemStatus}</Text>
           
           {apiStatus && (
             <>
@@ -270,7 +253,7 @@ export default function SettingsScreen() {
                   color={apiStatus.status === 'healthy' ? '#34C759' : '#FF3B30'}
                 />
                 <Text style={styles.statusLabel}>
-                  API: {apiStatus.status === 'healthy' ? 'Online' : 'Offline'}
+                  {apiStatus.status === 'healthy' ? t.apiOnline : t.apiOffline}
                 </Text>
               </View>
               
@@ -281,7 +264,7 @@ export default function SettingsScreen() {
                   color={apiStatus.llm_configured ? '#34C759' : '#FF3B30'}
                 />
                 <Text style={styles.statusLabel}>
-                  AI: {apiStatus.llm_configured ? 'Configured' : 'Not Configured'}
+                  {apiStatus.llm_configured ? t.aiConfigured : t.aiNotConfigured}
                 </Text>
               </View>
               
@@ -292,7 +275,7 @@ export default function SettingsScreen() {
                   color={apiStatus.serper_configured ? '#34C759' : '#FF9500'}
                 />
                 <Text style={styles.statusLabel}>
-                  Search API: {apiStatus.serper_configured ? 'Configured' : 'Using Mock Data'}
+                  {apiStatus.serper_configured ? t.searchApiReady : t.searchApiMock}
                 </Text>
               </View>
             </>
@@ -303,22 +286,24 @@ export default function SettingsScreen() {
             onPress={checkApiHealth}
           >
             <MaterialIcons name="refresh" size={20} color="#007AFF" />
-            <Text style={styles.refreshText}>
-              {language === 'it' ? 'Aggiorna Stato' : 'Refresh Status'}
-            </Text>
+            <Text style={styles.refreshText}>{t.refreshStatus}</Text>
           </TouchableOpacity>
         </View>
 
         {/* About Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            {language === 'it' ? 'Informazioni' : 'About'}
-          </Text>
+          <Text style={styles.sectionTitle}>{t.about}</Text>
           <View style={styles.aboutCard}>
             <Text style={styles.appName}>JARVIS</Text>
             <Text style={styles.appSubtitle}>
               {language === 'it'
                 ? 'Il tuo assistente digitale'
+                : language === 'es'
+                ? 'Tu asistente digital'
+                : language === 'fr'
+                ? 'Votre assistant numérique'
+                : language === 'de'
+                ? 'Ihr digitaler Assistent'
                 : 'Your Digital Assistant'}
             </Text>
             <Text style={styles.appVersion}>Version 1.0.0</Text>

@@ -12,6 +12,7 @@ import { useIconFonts } from "@/src/hooks/use-icon-fonts";
 import { AnimatedSplash } from "@/src/components/AnimatedSplash";
 import { registerForPushNotifications } from "@/src/services/push";
 import { AuthProvider } from "@/src/services/auth";
+import { useAppStore } from "@/src/store";
 
 
 // Disable logbox errors etc so that users can see the app
@@ -60,6 +61,12 @@ export default function RootLayout() {
   });
   const [showSplash, setShowSplash] = useState(true);
   const [timedOut, setTimedOut] = useState(false);
+  const hydrate = useAppStore((s) => s.hydrate);
+
+  // Hydrate persisted language preference on cold start
+  useEffect(() => {
+    hydrate();
+  }, [hydrate]);
 
   // Safety timeout: proceed after 3s even if fonts didn't finish loading.
   useEffect(() => {
