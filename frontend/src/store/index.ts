@@ -1,14 +1,15 @@
 import { create } from 'zustand';
 import { SearchQuery } from '../types';
+import type { LanguageCode } from '../constants/categories';
 
 interface AppState {
-  language: 'it' | 'en';
+  language: LanguageCode;
   selectedCategories: string[];
   activeSearches: SearchQuery[];
   activeCounts: Record<string, number>;
   notificationCount: number;
   notificationsPerCategory: Record<string, number>;
-  setLanguage: (lang: 'it' | 'en') => void;
+  setLanguage: (lang: LanguageCode) => void;
   toggleCategory: (categoryId: string) => void;
   setActiveSearches: (searches: SearchQuery[]) => void;
   addActiveSearch: (search: SearchQuery) => void;

@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -7,14 +7,17 @@ import {
   StyleSheet,
   SafeAreaView,
   RefreshControl,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { CategoryButton } from '../src/components/CategoryButton';
 import { NotificationBell } from '../src/components/NotificationBell';
 import { useAppStore } from '../src/store';
-import { CATEGORIES, TRANSLATIONS } from '../src/constants/categories';
+import { CATEGORIES, TRANSLATIONS, LANGUAGES } from '../src/constants/categories';
 import { api } from '../src/services/api';
+import { FlagCircle } from '../src/components/FlagCircle';
 
 export default function HomeScreen() {
   const {
@@ -30,6 +33,8 @@ export default function HomeScreen() {
   } = useAppStore();
   const t = TRANSLATIONS[language];
   const [refreshing, setRefreshing] = React.useState(false);
+  const [langPickerOpen, setLangPickerOpen] = useState(false);
+  const currentLang = LANGUAGES.find((l) => l.code === language) || LANGUAGES[0];
 
   const refresh = useCallback(async () => {
     try {
@@ -105,10 +110,10 @@ export default function HomeScreen() {
 
           <TouchableOpacity
             style={styles.languageButton}
-            onPress={() => setLanguage(language === 'it' ? 'en' : 'it')}
+            onPress={() => setLangPickerOpen(true)}
             testID="language-button"
           >
-            <MaterialIcons name="language" size={22} color="#333" />
+            <FlagCircle flag={currentLang.flag} size={22} />
             <Text style={styles.languageText}>{language.toUpperCase()}</Text>
             <MaterialIcons name="arrow-drop-down" size={22} color="#333" />
           </TouchableOpacity>
@@ -201,6 +206,54 @@ export default function HomeScreen() {
           <Text style={styles.stopButtonText}>Interrompi ricerche</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Language picker modal */}
+      <Modal
+        visible={langPickerOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLangPickerOpen(false)}
+      >
+        <Pressable
+          style={styles.langModalOverlay}
+          onPress={() => setLangPickerOpen(false)}
+        >
+          <Pressable style={styles.langModalCard} onPress={() => { /* no-op to prevent close */ }}>
+            <View style={styles.langModalHeader}>
+              <Text style={styles.langModalTitle}>{t.language}</Text>
+              <TouchableOpacity onPress={() => setLangPickerOpen(false)}>
+                <MaterialIcons name="close" size={22} color="#666" />
+              </TouchableOpacity>
+            </View>
+            {LANGUAGES.map((lang, idx) => {
+              const active = language === lang.code;
+              return (
+                <TouchableOpacity
+                  key={lang.code}
+                  style={[
+                    styles.langModalRow,
+                    idx !== LANGUAGES.length - 1 && styles.langModalRowDivider,
+                  ]}
+                  onPress={() => {
+                    setLanguage(lang.code);
+                    setLangPickerOpen(false);
+                  }}
+                  activeOpacity={0.7}
+                  testID={`header-lang-${lang.code}`}
+                >
+                  <FlagCircle flag={lang.flag} size={28} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.langModalName}>{lang.nativeLabel}</Text>
+                  </View>
+                  {active && (
+                    <MaterialIcons name="check-circle" size={20} color="#007AFF" />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -366,5 +419,53 @@ const styles = StyleSheet.create({
     color: '#D14343',
     fontSize: 16,
     fontWeight: '600',
+  },
+  langModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingTop: 60,
+    paddingRight: 12,
+  },
+  langModalCard: {
+    width: 240,
+    backgroundColor: '#FFF',
+    borderRadius: 14,
+    overflow: 'hidden',
+    // Subtle elevation without deprecated shadow* props
+    boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+    elevation: 8,
+  },
+  langModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#EEE',
+  },
+  langModalTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#333',
+    letterSpacing: 0.5,
+  },
+  langModalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  langModalRowDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#F5F5F5',
+  },
+  langModalName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111',
   },
 });
