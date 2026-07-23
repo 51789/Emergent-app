@@ -1,0 +1,40 @@
+{
+  "summary": "Tested ATTIVO/posted_date/expiry_date feature end-to-end. Backend: 8 pytest tests (7/8 first run, 8/8 on retry — flaky AI on 'bandi' occasionally returns fallback without dates). All ATTIVO statuses, posted_date within 60d, expiry_date future & OBBLIGATORIO for gare_appalto/bandi, opzionale per altre categorie, ordinamento posted_date DESC su GET endpoint tutto verificato. Frontend: mobile viewport 375x667, gare_appalto ha reso 4 status-badge 'ATTIVO', 4 chip Pubbl. ordinati DESC (18/07/2026 → 25/06/2026) e 4 chip Scad. futuri (30/09/2026, 15/10, 20/10, 31/12/2026). Immobili ha reso 4 badge ATTIVO + 4 Pubbl. DESC senza chip Scad. (comportamento corretto per campo opzionale). ResultCard ha null-guard `(result.status || result.posted_date || result.expiry_date)` che garantisce retrocompatibilità per record legacy. Non-regression favorite/delete toggle OK.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/search/process (category=bandi)", "issue": "Flaky: occasionally l'AI ritorna il fallback finale in generate_ai_results senza posted_date/expiry_date (posted_date=None). Passa al retry. Consider stricter JSON schema/retry logic o rimuovere il fallback finale per categorie che richiedono expiry."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "Animated (JS-driver warning)", "issue": "Console: 'Animated: `useNativeDriver` is not supported because the native animated module is missing. Falling back to JS-based animation.' Warning solo su web preview — su device Expo funziona natively. Non bloccante."},
+      {"component": "shadow* / pointerEvents deprecation warnings", "issue": "Console warns: '\"shadow*\" style props are deprecated. Use \"boxShadow\"' e 'props.pointerEvents is deprecated. Use style.pointerEvents'. Reference: /app/frontend/src/components/ResultCard.tsx (styles.card usa shadowColor/Offset/Opacity/Radius). Migrare a boxShadow o mantenere solo iOS-native."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_status_dates.py",
+    "/app/test_reports/pytest/status_dates_results.xml"
+  ],
+  "action_items": [
+    "Hardening generate_ai_results: quando categoria è gare_appalto/bandi e l'AI ritorna fallback senza posted_date/expiry_date, RETRY o scartare il risultato invece di persistere record con status/posted_date/expiry_date=null.",
+    "(Non bloccante) Migrare shadowColor/Offset/Opacity/Radius in ResultCard.tsx a boxShadow per rimuovere il warning deprecato di React Native Web."
+  ],
+  "critical_code_review_comments": [
+    "generate_ai_results ultimate fallback (righe 413-420 di server.py) non produce posted_date/expiry_date/status → viola il contratto per categorie 'requires_expiry'. Il default `status='ATTIVO'` nel Pydantic model salva la situazione parzialmente ma posted_date/expiry_date restano null.",
+    "ResultCard.tsx: la conditional `(result.status || result.posted_date || result.expiry_date)` include correttamente il default `status='ATTIVO'` (backend), quindi anche i record 'nuovi' vuoti mostreranno solo badge ATTIVO senza chips — coerente ma verificare intent design.",
+    "Il campo `status` è Optional[str]='ATTIVO' nel modello Pydantic: qualsiasi record senza status esplicito verrà comunque ritornato con 'ATTIVO' dal GET (SearchResult(**doc)). Considerare se questo è desiderato per record legacy — potrebbero risultare 'ATTIVO' anche se scaduti."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_status_dates.py (created)"
+  ],
+  "success_rate": {"backend": "100% (8/8 con retry, 87.5% first-run)", "frontend": "100% (gare_appalto + immobili validati; ordinamento DESC, ATTIVO badge, chip Pubbl/Scad tutti presenti)"},
+  "seed_data_creation": "Nessuna. I test creano ricerche/risultati con prefisso 'TEST_' o via /api/search/process ed effettuano cleanup con DELETE dove applicabile.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "URL frontend: EXPO_PUBLIC_BACKEND_URL=https://jarvis-assistant-603.preview.emergentagent.com. Attendere 6s dopo splash + 20s dopo submit per la generazione AI. testID nuovi: status-row-{id}, status-badge-{id}. Chip usano testo 'Pubbl. DD/MM/YYYY' e 'Scad. DD/MM/YYYY'. Categoria 'bandi' può essere flaky in POST /search/process — considerare retry o mockare LLM.",
+  "rca_of_issue": "Il fallback finale in server.py:413-420 di generate_ai_results ritorna un dict senza posted_date/expiry_date/status. Quando l'AI non ritorna JSON valido (parse failure o timeout stream) o non ritorna 'results', il codice usa questo fallback e il record salvato ha posted_date=None. Il modello Pydantic assegna status='ATTIVO' di default ma non genera date. Mitigation: retry LLM call, o per gare_appalto/bandi propagare l'errore invece di usare fallback silente."
+}

@@ -16,6 +16,9 @@ export interface SearchResult {
   source_link: string;
   contacts: string[];
   seller_type?: string | null;
+  status?: string | null;
+  posted_date?: string | null;
+  expiry_date?: string | null;
   created_at: string;
   viewed?: boolean;
   is_favorite?: boolean;

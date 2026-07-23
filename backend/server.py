@@ -9,7 +9,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
 import json
 import asyncio
@@ -57,6 +57,9 @@ class SearchResult(BaseModel):
     source_link: str
     contacts: Optional[List[str]] = []
     seller_type: Optional[str] = None
+    status: Optional[str] = "ATTIVO"
+    posted_date: Optional[str] = None
+    expiry_date: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     viewed: bool = False
     is_favorite: bool = False
@@ -320,16 +323,35 @@ async def generate_ai_results(query: str, category: str, language: str = "it") -
     }
     seller_options = seller_type_options.get(category, '"Privato" | "Azienda"')
     
+    today = datetime.now(timezone.utc)
+    today_str = today.strftime("%d/%m/%Y")
+    year = today.year
+    
+    # Categories that REQUIRE an explicit expiry_date to be considered active
+    requires_expiry = category in ("gare_appalto", "bandi")
+    expiry_instruction = (
+        f"OBBLIGATORIO: ogni risultato DEVE includere `expiry_date` (formato DD/MM/YYYY) "
+        f"posteriore a {today_str}. Se un bando/appalto/fondo è già scaduto, NON includerlo. "
+        f"Ordina i risultati dal più recente (`posted_date` DESC)."
+        if requires_expiry
+        else f"Includi `expiry_date` solo se applicabile (es. offerte a scadenza), altrimenti null."
+    )
+    
     prompt = f"""Sei un motore di ricerca specializzato in {context}.
+DATA ODIERNA: {today_str}
+ANNO CORRENTE: {year}
 
 RICHIESTA DELL'UTENTE: "{query}"
 
-Devi generare 3-4 risultati di ricerca REALISTICI che rispettino ESATTAMENTE i criteri dell'utente:
-- La LOCALITÀ deve essere ESATTAMENTE quella richiesta dall'utente (se ha detto Alcamo, i risultati devono essere ad Alcamo, NON a Torino o altre città)
+Devi generare 3-4 risultati di ricerca REALISTICI, AGGIORNATI ALLA DATA ODIERNA e ATTUALMENTE VALIDI/ATTIVI:
+- Tutti i risultati devono essere ANCORA IN CORSO / VALIDI oggi ({today_str})
+- NON includere annunci scaduti, chiusi, ritirati, o vecchi di più di 60 giorni per `posted_date`
+- La LOCALITÀ deve essere ESATTAMENTE quella richiesta dall'utente
 - Il PREZZO/BUDGET deve rientrare nel range indicato
-- Le CARATTERISTICHE (tipologia, superficie, ecc.) devono corrispondere
-- I dettagli devono essere plausibili e realistici per la zona indicata
-- Per ogni risultato indica il TIPO DI VENDITORE (seller_type) coerente col contesto
+- Le CARATTERISTICHE devono corrispondere alla richiesta
+- Ordina i risultati dal PIÙ RECENTE al più vecchio (per `posted_date`)
+
+{expiry_instruction}
 
 Fonti tipiche: {sources}
 Valori validi per seller_type in questa categoria: {seller_options}
@@ -338,11 +360,14 @@ Restituisci SOLO un JSON valido con questo formato ESATTO (nessun altro testo):
 {{
   "results": [
     {{
-      "title": "Titolo dell'annuncio (specifico per la località richiesta)",
+      "title": "Titolo dell'annuncio (specifico per la località e ATTUALE)",
       "snippet": "Descrizione dettagliata dell'annuncio con dettagli plausibili per la zona",
       "link": "https://sito-realistico.it/annuncio-specifico",
       "contacts": ["email@esempio.it", "+39 XXX XXXXXXX"],
-      "seller_type": "uno dei valori validi elencati sopra"
+      "seller_type": "uno dei valori validi elencati sopra",
+      "status": "ATTIVO",
+      "posted_date": "DD/MM/YYYY (data recente, entro gli ultimi 60 giorni)",
+      "expiry_date": "DD/MM/YYYY (data futura) oppure null se non applicabile"
     }}
   ]
 }}
@@ -353,7 +378,10 @@ IMPORTANTE:
 - Genera prefissi telefonici corretti per la zona (091 per Palermo/Alcamo, 011 per Torino, 02 per Milano, ecc.)
 - I nomi delle agenzie/aziende devono essere plausibili per la zona
 - Varia i seller_type tra i risultati (es. mix di Privato e Agenzia) per realismo
-- I contatti (email/telefono) devono essere coerenti col seller_type (es. dominio agenzia se Agenzia)
+- I contatti (email/telefono) devono essere coerenti col seller_type
+- `status` DEVE essere sempre "ATTIVO" (perché filtriamo solo annunci validi)
+- `posted_date` deve essere una data reale degli ultimi 60 giorni, coerente con {today_str}
+- Ordina la lista di `results` dal più recente al più vecchio per `posted_date`
 """
     
     try:
@@ -615,7 +643,8 @@ async def process_search_query(input: SearchQueryCreate):
         search_obj = SearchQuery(**input.dict())
         await db.searches.insert_one(search_obj.dict())
         
-        # Save results
+        # Save results — the AI is instructed to return them sorted from newest
+        # to oldest by posted_date, so we preserve that order.
         saved_results = []
         for result in search_results:
             search_result = SearchResult(
@@ -626,6 +655,9 @@ async def process_search_query(input: SearchQueryCreate):
                 source_link=result.get("link", ""),
                 contacts=result.get("contacts", []),
                 seller_type=result.get("seller_type"),
+                status=result.get("status") or "ATTIVO",
+                posted_date=result.get("posted_date"),
+                expiry_date=result.get("expiry_date"),
             )
             await db.results.insert_one(search_result.dict())
             saved_results.append(search_result.dict())
@@ -643,10 +675,31 @@ async def process_search_query(input: SearchQueryCreate):
         logging.error(f"Error processing search: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+def _parse_dmy(s: Optional[str]) -> Optional[datetime]:
+    """Best-effort parse of a DD/MM/YYYY string. Returns None on failure."""
+    if not s:
+        return None
+    try:
+        return datetime.strptime(s.strip(), "%d/%m/%Y")
+    except (ValueError, AttributeError):
+        return None
+
+
 @api_router.get("/search/{search_id}/results", response_model=List[SearchResult])
 async def get_search_results(search_id: str):
-    """Get results for a specific search"""
-    results = await db.results.find({"search_id": search_id}).to_list(100)
+    """Get results for a specific search, sorted by posted_date DESC
+    (most recent first). Results without a parseable posted_date fall back to
+    the DB insertion order (created_at DESC)."""
+    results = await db.results.find({"search_id": search_id}, {"_id": 0}).to_list(100)
+    
+    def sort_key(r):
+        dt = _parse_dmy(r.get("posted_date"))
+        if dt is not None:
+            return (1, dt)
+        # Fallback to created_at
+        return (0, r.get("created_at") or datetime.min)
+    
+    results.sort(key=sort_key, reverse=True)
     return [SearchResult(**result) for result in results]
 
 @api_router.get("/health")

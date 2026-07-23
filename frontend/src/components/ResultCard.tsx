@@ -166,6 +166,37 @@ export const ResultCard: React.FC<ResultCardProps> = ({
 
         <Text style={styles.summary}>{result.summary}</Text>
 
+        {/* Status + dates row — shows ATTIVO badge and posted/expiry dates */}
+        {(result.status || result.posted_date || result.expiry_date) ? (
+          <View style={styles.statusRow} testID={`status-row-${result.id}`}>
+            {result.status ? (
+              <View
+                style={styles.statusBadge}
+                testID={`status-badge-${result.id}`}
+              >
+                <View style={styles.statusDot} />
+                <Text style={styles.statusText}>{result.status}</Text>
+              </View>
+            ) : null}
+            {result.posted_date ? (
+              <View style={styles.dateChip}>
+                <MaterialIcons name="event" size={12} color="#666" />
+                <Text style={styles.dateChipText}>
+                  {language === 'it' ? 'Pubbl.' : 'Posted'} {result.posted_date}
+                </Text>
+              </View>
+            ) : null}
+            {result.expiry_date ? (
+              <View style={styles.dateChipExpiry}>
+                <MaterialIcons name="schedule" size={12} color="#B8860B" />
+                <Text style={styles.dateChipExpiryText}>
+                  {language === 'it' ? 'Scad.' : 'Exp.'} {result.expiry_date}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
         {/* Source Reference Section */}
         {result.source_link ? (
           <View style={styles.sourceSection}>
@@ -278,6 +309,66 @@ const styles = StyleSheet.create({
     color: '#555',
     marginBottom: 12,
     lineHeight: 21,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#E8F5E9',
+    borderRadius: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: '#66BB6A',
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#2E7D32',
+  },
+  statusText: {
+    color: '#1B5E20',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  dateChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  dateChipText: {
+    color: '#555',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  dateChipExpiry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFF8E1',
+    borderRadius: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: '#E8D9A8',
+  },
+  dateChipExpiryText: {
+    color: '#B8860B',
+    fontSize: 11,
+    fontWeight: '700',
   },
   sourceSection: {
     backgroundColor: '#F5F7FA',
