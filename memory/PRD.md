@@ -36,6 +36,16 @@ Mobile-first AI assistant that monitors the web in background across specialized
 - Backend: `/api/auth/{register,login,me}` + `/api/admin/users` (CRUD) + seeding of two admins
 - Frontend: `/login`, `/admin` (KPI dashboard), `/admin/users` (list + create/edit/delete modal), Settings integration
 
+### Analytics Dashboard (2026-07-23) ✅
+- Backend: `/api/admin/analytics/{overview,timeseries,categories}` with 7 range presets + custom date range, auto bucket selection (hour/day/week/month)
+- Frontend: `/admin/analytics` with pill filters, native HTML date picker (web) / text input (native), animated line + bar SVG charts (react-native-svg, no external chart lib), auto-refresh in real-time mode
+- KPIs: Ricavo stimato mensile (€), Abbonati attivi, Nuovi iscritti, Tasso conversione + Ripartizione piani (Free/Pro/Premium)
+- 49/49 backend tests pass
+
+### Refactoring (light-touch, 2026-07-23) ✅
+- Extracted `/api/admin/analytics/*` into `backend/routers/analytics.py` via factory pattern (`build_analytics_router(db, require_admin)`) — no circular imports
+- Reduced `server.py` from 1506 → 1222 lines while keeping all tests green
+
 ## Pending
 - Stripe integration (monthly/annual subscriptions) — Phase 2C
 - Analytics dashboard with time filters + custom date picker + charts — Phase 2D
