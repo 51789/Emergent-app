@@ -7,6 +7,7 @@ import {
   StyleSheet,
   SafeAreaView,
   Switch,
+  Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -14,9 +15,11 @@ import { useAppStore } from '../src/store';
 import { TRANSLATIONS } from '../src/constants/categories';
 import { api } from '../src/services/api';
 import { PremiumCard } from '../src/components/PremiumCard';
+import { useAuth } from '../src/services/auth';
 
 export default function SettingsScreen() {
   const { language, setLanguage } = useAppStore();
+  const { user, signOut } = useAuth();
   const [apiStatus, setApiStatus] = useState<any>(null);
   const t = TRANSLATIONS[language];
 
@@ -51,6 +54,114 @@ export default function SettingsScreen() {
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
       >
+        {/* Account Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            {language === 'it' ? 'Account' : 'Account'}
+          </Text>
+          {user ? (
+            <>
+              <View style={styles.accountCard}>
+                <View style={styles.accountAvatar}>
+                  <MaterialIcons
+                    name={user.role === 'admin' ? 'admin-panel-settings' : 'person'}
+                    size={24}
+                    color={user.role === 'admin' ? '#B8860B' : '#007AFF'}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.accountEmail} numberOfLines={1}>
+                    {user.email}
+                  </Text>
+                  <View style={styles.accountTags}>
+                    <View
+                      style={[
+                        styles.tag,
+                        user.role === 'admin' ? styles.tagAdmin : styles.tagUser,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.tagText,
+                          user.role === 'admin' && styles.tagTextAdmin,
+                        ]}
+                      >
+                        {user.role.toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={styles.tag}>
+                      <Text style={styles.tagText}>
+                        {(user.plan || 'free').toUpperCase()}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              {user.role === 'admin' && (
+                <TouchableOpacity
+                  style={[styles.settingItem, { marginTop: 8 }]}
+                  onPress={() => router.push('/admin')}
+                  activeOpacity={0.7}
+                  testID="settings-admin-panel"
+                >
+                  <View style={styles.settingInfo}>
+                    <MaterialIcons name="dashboard" size={24} color="#B8860B" />
+                    <Text style={styles.settingLabel}>
+                      {language === 'it' ? 'Pannello Admin' : 'Admin Panel'}
+                    </Text>
+                  </View>
+                  <MaterialIcons name="chevron-right" size={24} color="#BBB" />
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={[styles.settingItem, { marginTop: 8 }]}
+                onPress={() => {
+                  Alert.alert(
+                    language === 'it' ? 'Disconnetti' : 'Sign out',
+                    language === 'it'
+                      ? 'Sei sicuro di voler uscire?'
+                      : 'Are you sure you want to sign out?',
+                    [
+                      { text: language === 'it' ? 'Annulla' : 'Cancel', style: 'cancel' },
+                      {
+                        text: language === 'it' ? 'Esci' : 'Sign out',
+                        style: 'destructive',
+                        onPress: async () => {
+                          await signOut();
+                          router.replace('/login');
+                        },
+                      },
+                    ]
+                  );
+                }}
+                activeOpacity={0.7}
+                testID="settings-signout"
+              >
+                <View style={styles.settingInfo}>
+                  <MaterialIcons name="logout" size={24} color="#D14343" />
+                  <Text style={[styles.settingLabel, { color: '#D14343' }]}>
+                    {language === 'it' ? 'Disconnetti' : 'Sign out'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <TouchableOpacity
+              style={styles.loginBtn}
+              onPress={() => router.push('/login')}
+              activeOpacity={0.85}
+              testID="settings-login"
+            >
+              <MaterialIcons name="login" size={20} color="#FFF" />
+              <Text style={styles.loginBtnText}>
+                {language === 'it' ? 'Accedi / Registrati' : 'Sign in / Register'}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
         {/* Language Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t.language}</Text>
@@ -314,5 +425,58 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#333',
     lineHeight: 18,
+  },
+  accountCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  accountAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F5F5F5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accountEmail: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111',
+    marginBottom: 6,
+  },
+  accountTags: { flexDirection: 'row', gap: 6 },
+  tag: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: '#F0F0F0',
+  },
+  tagText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#666',
+    letterSpacing: 0.5,
+  },
+  tagAdmin: { backgroundColor: '#FFF8E1' },
+  tagTextAdmin: { color: '#B8860B' },
+  tagUser: { backgroundColor: '#EEF6FF' },
+  loginBtn: {
+    backgroundColor: '#007AFF',
+    borderRadius: 12,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  loginBtnText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
 });

@@ -9,7 +9,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
 import json
 import asyncio
@@ -37,6 +37,41 @@ _push_client = httpx.AsyncClient(
     headers={"X-Push-Key": PUSH_KEY},
     timeout=10.0,
 )
+
+# ---------- Auth (JWT + bcrypt) ----------
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from pydantic import EmailStr
+
+JWT_SECRET = os.getenv("JWT_SECRET", "changeme-in-production-please")
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Two seed admins per user request. Password can be rotated later via API.
+SEED_ADMINS = [
+    ("marcolombardo595@gmail.com", "Jarvis.2026"),
+    ("davidepioggia.mx96@gmail.com", "Jarvis.2026"),
+]
+
+
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
+
+
+def verify_password(plain: str, hashed: str) -> bool:
+    try:
+        return pwd_context.verify(plain, hashed)
+    except Exception:
+        return False
+
+
+def create_access_token(payload: Dict[str, Any]) -> str:
+    data = payload.copy()
+    data["exp"] = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    return jwt.encode(data, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
 
 # Create the main app without a prefix
 app = FastAPI()
@@ -889,6 +924,257 @@ async def health_check():
     }
 
 
+# ==================== AUTH & USERS ====================
+from fastapi import Depends, Header
+
+class UserRegister(BaseModel):
+    email: EmailStr
+    password: str
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class UserOut(BaseModel):
+    id: str
+    email: EmailStr
+    role: str
+    is_active: bool
+    plan: Optional[str] = "free"
+    plan_status: Optional[str] = "inactive"
+    plan_started_at: Optional[str] = None
+    plan_expires_at: Optional[str] = None
+    created_at: Optional[str] = None
+
+class UserUpdateAdmin(BaseModel):
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+    role: Optional[str] = None
+    is_active: Optional[bool] = None
+    plan: Optional[str] = None
+    plan_status: Optional[str] = None
+
+class TokenOut(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserOut
+
+
+def _user_to_out(doc: Dict[str, Any]) -> UserOut:
+    """Convert a DB user document to the public UserOut model."""
+    def _iso(v):
+        if isinstance(v, datetime):
+            return v.isoformat()
+        return v
+    return UserOut(
+        id=doc.get("id") or str(doc.get("_id")),
+        email=doc["email"],
+        role=doc.get("role", "user"),
+        is_active=doc.get("is_active", True),
+        plan=doc.get("plan", "free"),
+        plan_status=doc.get("plan_status", "inactive"),
+        plan_started_at=_iso(doc.get("plan_started_at")),
+        plan_expires_at=_iso(doc.get("plan_expires_at")),
+        created_at=_iso(doc.get("created_at")),
+    )
+
+
+async def get_current_user(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
+    """Decode JWT and load the user. Raises 401 if invalid/inactive."""
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+    token = authorization.split(None, 1)[1].strip()
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token payload")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user or not user.get("is_active", True):
+        raise HTTPException(status_code=401, detail="User not found or inactive")
+    return user
+
+
+async def require_admin(user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admins only")
+    return user
+
+
+@api_router.post("/auth/register", response_model=TokenOut, status_code=201)
+async def auth_register(body: UserRegister):
+    """Register a new regular user (role=user by default)."""
+    existing = await db.users.find_one({"email": body.email.lower()})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    uid = str(uuid.uuid4())
+    doc = {
+        "id": uid,
+        "email": body.email.lower(),
+        "hashed_password": hash_password(body.password),
+        "role": "user",
+        "is_active": True,
+        "plan": "free",
+        "plan_status": "inactive",
+        "plan_started_at": None,
+        "plan_expires_at": None,
+        "created_at": datetime.utcnow(),
+    }
+    await db.users.insert_one(doc)
+    token = create_access_token({"sub": uid, "role": "user", "email": doc["email"]})
+    return TokenOut(access_token=token, user=_user_to_out(doc))
+
+
+@api_router.post("/auth/login", response_model=TokenOut)
+async def auth_login(body: UserLogin):
+    """Login with email and password. Returns JWT + user info."""
+    user = await db.users.find_one({"email": body.email.lower()})
+    if not user or not verify_password(body.password, user.get("hashed_password", "")):
+        raise HTTPException(status_code=401, detail="Email o password errati")
+    if not user.get("is_active", True):
+        raise HTTPException(status_code=403, detail="Account disattivato")
+    token = create_access_token({
+        "sub": user["id"],
+        "role": user.get("role", "user"),
+        "email": user["email"],
+    })
+    return TokenOut(access_token=token, user=_user_to_out(user))
+
+
+@api_router.get("/auth/me", response_model=UserOut)
+async def auth_me(user: Dict[str, Any] = Depends(get_current_user)):
+    """Return the currently authenticated user."""
+    return _user_to_out(user)
+
+
+# ---------- Admin: user management ----------
+@api_router.get("/admin/users", response_model=List[UserOut])
+async def admin_list_users(_: Dict[str, Any] = Depends(require_admin)):
+    """List all users (both admins and regular users)."""
+    users: List[UserOut] = []
+    cursor = db.users.find({}, {"_id": 0}).sort("created_at", -1)
+    async for doc in cursor:
+        users.append(_user_to_out(doc))
+    return users
+
+
+@api_router.post("/admin/users", response_model=UserOut, status_code=201)
+async def admin_create_user(body: UserRegister, admin: Dict[str, Any] = Depends(require_admin)):
+    """Create a new user or admin. Set role via subsequent PATCH."""
+    existing = await db.users.find_one({"email": body.email.lower()})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email già registrata")
+    uid = str(uuid.uuid4())
+    doc = {
+        "id": uid,
+        "email": body.email.lower(),
+        "hashed_password": hash_password(body.password),
+        "role": "user",
+        "is_active": True,
+        "plan": "free",
+        "plan_status": "inactive",
+        "plan_started_at": None,
+        "plan_expires_at": None,
+        "created_at": datetime.utcnow(),
+    }
+    await db.users.insert_one(doc)
+    return _user_to_out(doc)
+
+
+@api_router.patch("/admin/users/{user_id}", response_model=UserOut)
+async def admin_update_user(
+    user_id: str,
+    body: UserUpdateAdmin,
+    admin: Dict[str, Any] = Depends(require_admin),
+):
+    """Update a user (email, password, role, active, plan). Password is
+    hashed if provided. Admins cannot demote themselves to prevent lockouts."""
+    target = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not target:
+        raise HTTPException(status_code=404, detail="Utente non trovato")
+
+    update: Dict[str, Any] = {}
+    if body.email is not None:
+        new_email = body.email.lower()
+        if new_email != target["email"]:
+            clash = await db.users.find_one({"email": new_email})
+            if clash:
+                raise HTTPException(status_code=400, detail="Email già in uso")
+        update["email"] = new_email
+    if body.password:
+        update["hashed_password"] = hash_password(body.password)
+    if body.role is not None:
+        if body.role not in ("admin", "user"):
+            raise HTTPException(status_code=400, detail="Ruolo non valido")
+        if user_id == admin["id"] and body.role != "admin":
+            raise HTTPException(status_code=400, detail="Non puoi rimuovere il tuo ruolo admin")
+        update["role"] = body.role
+    if body.is_active is not None:
+        if user_id == admin["id"] and body.is_active is False:
+            raise HTTPException(status_code=400, detail="Non puoi disattivare te stesso")
+        update["is_active"] = body.is_active
+    if body.plan is not None:
+        update["plan"] = body.plan
+    if body.plan_status is not None:
+        update["plan_status"] = body.plan_status
+
+    if not update:
+        raise HTTPException(status_code=400, detail="Nessun campo da aggiornare")
+
+    await db.users.update_one({"id": user_id}, {"$set": update})
+    updated = await db.users.find_one({"id": user_id}, {"_id": 0})
+    return _user_to_out(updated)
+
+
+@api_router.delete("/admin/users/{user_id}")
+async def admin_delete_user(
+    user_id: str,
+    admin: Dict[str, Any] = Depends(require_admin),
+):
+    """Delete a user. Admins cannot delete themselves."""
+    if user_id == admin["id"]:
+        raise HTTPException(status_code=400, detail="Non puoi eliminare te stesso")
+    res = await db.users.delete_one({"id": user_id})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Utente non trovato")
+    return {"deleted_id": user_id}
+
+
+async def _seed_admins():
+    """Idempotent seeding of the two admin accounts requested by the owner."""
+    for email, pw in SEED_ADMINS:
+        email_l = email.lower()
+        existing = await db.users.find_one({"email": email_l})
+        if not existing:
+            await db.users.insert_one({
+                "id": str(uuid.uuid4()),
+                "email": email_l,
+                "hashed_password": hash_password(pw),
+                "role": "admin",
+                "is_active": True,
+                "plan": "premium",
+                "plan_status": "active",
+                "plan_started_at": datetime.utcnow(),
+                "plan_expires_at": None,
+                "created_at": datetime.utcnow(),
+            })
+            logging.info(f"Seeded admin account: {email_l}")
+        else:
+            # Ensure the account is admin & active; do NOT overwrite password
+            # unless someone explicitly rotates it via the API.
+            fixes: Dict[str, Any] = {}
+            if existing.get("role") != "admin":
+                fixes["role"] = "admin"
+            if not existing.get("is_active", True):
+                fixes["is_active"] = True
+            if fixes:
+                await db.users.update_one({"email": email_l}, {"$set": fixes})
+
+
 # Include the router in the main app
 app.include_router(api_router)
 
@@ -910,3 +1196,17 @@ logger = logging.getLogger(__name__)
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+
+
+@app.on_event("startup")
+async def startup_seed_admins():
+    """Ensure the two seed admin accounts exist and unique email index."""
+    try:
+        await db.users.create_index("email", unique=True)
+        await db.push_tokens.create_index([("user_id", 1), ("platform", 1)], unique=True)
+    except Exception as e:
+        logging.warning(f"Index creation warning: {e}")
+    try:
+        await _seed_admins()
+    except Exception as e:
+        logging.error(f"Admin seeding failed: {e}")

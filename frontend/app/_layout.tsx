@@ -11,6 +11,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useIconFonts } from "@/src/hooks/use-icon-fonts";
 import { AnimatedSplash } from "@/src/components/AnimatedSplash";
 import { registerForPushNotifications } from "@/src/services/push";
+import { AuthProvider } from "@/src/services/auth";
 
 
 // Disable logbox errors etc so that users can see the app
@@ -144,13 +145,15 @@ export default function RootLayout() {
   if (!canRender) return null;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <View style={{ flex: 1 }}>
-        <Stack screenOptions={{ headerShown: false }} />
-        {showSplash && (
-          <AnimatedSplash onFinish={() => setShowSplash(false)} />
-        )}
-      </View>
-    </GestureHandlerRootView>
+    <AuthProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <View style={{ flex: 1 }}>
+          <Stack screenOptions={{ headerShown: false }} />
+          {showSplash && (
+            <AnimatedSplash onFinish={() => setShowSplash(false)} />
+          )}
+        </View>
+      </GestureHandlerRootView>
+    </AuthProvider>
   );
 }
