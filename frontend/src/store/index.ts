@@ -4,15 +4,20 @@ import { SearchQuery } from '../types';
 import type { LanguageCode } from '../constants/categories';
 
 const LANGUAGE_KEY = 'jarvis.language';
+const VOICE_KEY = 'jarvis.voice';
+
+export type VoicePref = 'female' | 'male';
 
 interface AppState {
   language: LanguageCode;
+  voicePreference: VoicePref;
   selectedCategories: string[];
   activeSearches: SearchQuery[];
   activeCounts: Record<string, number>;
   notificationCount: number;
   notificationsPerCategory: Record<string, number>;
   setLanguage: (lang: LanguageCode) => void;
+  setVoicePreference: (v: VoicePref) => void;
   toggleCategory: (categoryId: string) => void;
   setActiveSearches: (searches: SearchQuery[]) => void;
   addActiveSearch: (search: SearchQuery) => void;
@@ -24,6 +29,7 @@ interface AppState {
 
 export const useAppStore = create<AppState>((set) => ({
   language: 'it',
+  voicePreference: 'female',
   selectedCategories: [],
   activeSearches: [],
   activeCounts: {},
@@ -33,6 +39,10 @@ export const useAppStore = create<AppState>((set) => ({
     set({ language: lang });
     // Persist (fire and forget)
     AsyncStorage.setItem(LANGUAGE_KEY, lang).catch(() => {});
+  },
+  setVoicePreference: (v) => {
+    set({ voicePreference: v });
+    AsyncStorage.setItem(VOICE_KEY, v).catch(() => {});
   },
   toggleCategory: (categoryId) =>
     set((state) => ({
@@ -57,9 +67,15 @@ export const useAppStore = create<AppState>((set) => ({
     }),
   hydrate: async () => {
     try {
-      const stored = await AsyncStorage.getItem(LANGUAGE_KEY);
-      if (stored && ['it', 'en', 'es', 'fr', 'de'].includes(stored)) {
-        set({ language: stored as LanguageCode });
+      const [storedLang, storedVoice] = await Promise.all([
+        AsyncStorage.getItem(LANGUAGE_KEY),
+        AsyncStorage.getItem(VOICE_KEY),
+      ]);
+      if (storedLang && ['it', 'en', 'es', 'fr', 'de'].includes(storedLang)) {
+        set({ language: storedLang as LanguageCode });
+      }
+      if (storedVoice === 'female' || storedVoice === 'male') {
+        set({ voicePreference: storedVoice });
       }
     } catch {
       // ignore

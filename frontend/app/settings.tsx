@@ -20,7 +20,7 @@ import { useAuth } from '../src/services/auth';
 import { FlagCircle } from '../src/components/FlagCircle';
 
 export default function SettingsScreen() {
-  const { language, setLanguage } = useAppStore();
+  const { language, setLanguage, voicePreference, setVoicePreference } = useAppStore();
   const { user, signOut } = useAuth();
   const [apiStatus, setApiStatus] = useState<any>(null);
   const [langOpen, setLangOpen] = useState(false);
@@ -181,6 +181,62 @@ export default function SettingsScreen() {
             </View>
             <MaterialIcons name="arrow-drop-down" size={26} color="#888" />
           </TouchableOpacity>
+        </View>
+
+        {/* Voice Assistant Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t.voiceAssistant}</Text>
+          <View style={styles.voiceSelector}>
+            <Text style={styles.voiceLabel}>{t.voiceGender}</Text>
+            <View style={styles.voiceOptions}>
+              <TouchableOpacity
+                style={[
+                  styles.voiceOption,
+                  voicePreference === 'female' && styles.voiceOptionActive,
+                ]}
+                onPress={() => setVoicePreference('female')}
+                activeOpacity={0.85}
+                testID="voice-female"
+              >
+                <MaterialIcons
+                  name="female"
+                  size={20}
+                  color={voicePreference === 'female' ? '#FFF' : '#D63384'}
+                />
+                <Text
+                  style={[
+                    styles.voiceOptionText,
+                    voicePreference === 'female' && styles.voiceOptionTextActive,
+                  ]}
+                >
+                  {t.voiceFemale}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.voiceOption,
+                  voicePreference === 'male' && styles.voiceOptionActive,
+                ]}
+                onPress={() => setVoicePreference('male')}
+                activeOpacity={0.85}
+                testID="voice-male"
+              >
+                <MaterialIcons
+                  name="male"
+                  size={20}
+                  color={voicePreference === 'male' ? '#FFF' : '#0D6EFD'}
+                />
+                <Text
+                  style={[
+                    styles.voiceOptionText,
+                    voicePreference === 'male' && styles.voiceOptionTextActive,
+                  ]}
+                >
+                  {t.voiceMale}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
 
         {/* Ricerche section — Cronologia + Preferiti */}
@@ -561,6 +617,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
+  },
+  voiceSelector: {
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 14,
+    gap: 12,
+  },
+  voiceLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#555',
+  },
+  voiceOptions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  voiceOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1.5,
+    borderColor: '#E5E5E5',
+  },
+  voiceOptionActive: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  voiceOptionText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#333',
+  },
+  voiceOptionTextActive: {
+    color: '#FFF',
   },
   langModalOverlay: {
     flex: 1,

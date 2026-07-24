@@ -13,6 +13,7 @@ import { SearchResult } from '../types';
 import { useAppStore } from '../store';
 import { TRANSLATIONS } from '../constants/categories';
 import { api } from '../services/api';
+import { speak, stopSpeaking } from '../services/speech';
 
 interface ResultCardProps {
   result: SearchResult;
@@ -42,17 +43,50 @@ export const ResultCard: React.FC<ResultCardProps> = ({
   onToggleSelect,
   onLongPress,
 }) => {
-  const { language } = useAppStore();
+  const { language, voicePreference } = useAppStore();
   const t = TRANSLATIONS[language];
 
   const [isFavorite, setIsFavorite] = useState<boolean>(!!result.is_favorite);
   const [savingFav, setSavingFav] = useState(false);
+  const [isReading, setIsReading] = useState(false);
   const starScale = useRef(new Animated.Value(1)).current;
 
   // Sync local state if the result prop changes (e.g. after re-fetch)
   useEffect(() => {
     setIsFavorite(!!result.is_favorite);
   }, [result.is_favorite]);
+
+  // Stop speech if the card unmounts while reading
+  useEffect(() => {
+    return () => {
+      if (isReading) stopSpeaking();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const buildSpokenText = (): string => {
+    const parts: string[] = [];
+    if (result.title) parts.push(result.title);
+    if (result.summary) parts.push(result.summary);
+    if (result.contacts && result.contacts.length > 0) {
+      parts.push(`${t.contacts}: ${result.contacts.join(', ')}`);
+    }
+    return parts.join('. ');
+  };
+
+  const handleTogglePlay = async () => {
+    if (isReading) {
+      stopSpeaking();
+      setIsReading(false);
+      return;
+    }
+    setIsReading(true);
+    await speak(buildSpokenText(), {
+      language,
+      gender: voicePreference,
+    });
+    setIsReading(false);
+  };
 
   const handleOpenLink = () => {
     if (result.source_link) {
@@ -138,29 +172,45 @@ export const ResultCard: React.FC<ResultCardProps> = ({
           </Text>
 
           {!selectionMode && (
-            <TouchableOpacity
-              onPress={handleToggleFavorite}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              testID={`favorite-button-${result.id}`}
-              accessibilityLabel={
-                isFavorite
-                  ? language === 'it'
-                    ? 'Rimuovi dai preferiti'
-                    : 'Remove from favorites'
-                  : language === 'it'
-                    ? 'Aggiungi ai preferiti'
-                    : 'Add to favorites'
-              }
-              style={styles.starButton}
-            >
-              <Animated.View style={{ transform: [{ scale: starScale }] }}>
+            <View style={styles.titleActions}>
+              <TouchableOpacity
+                onPress={handleTogglePlay}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                testID={`play-button-${result.id}`}
+                accessibilityLabel={isReading ? t.stopReading : t.playAloud}
+                style={styles.playButton}
+              >
                 <MaterialIcons
-                  name={isFavorite ? 'star' : 'star-border'}
+                  name={isReading ? 'stop-circle' : 'play-circle-filled'}
                   size={26}
-                  color={isFavorite ? '#FFC107' : '#BBB'}
+                  color={isReading ? '#FF3B30' : '#007AFF'}
                 />
-              </Animated.View>
-            </TouchableOpacity>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleToggleFavorite}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                testID={`favorite-button-${result.id}`}
+                accessibilityLabel={
+                  isFavorite
+                    ? language === 'it'
+                      ? 'Rimuovi dai preferiti'
+                      : 'Remove from favorites'
+                    : language === 'it'
+                      ? 'Aggiungi ai preferiti'
+                      : 'Add to favorites'
+                }
+                style={styles.starButton}
+              >
+                <Animated.View style={{ transform: [{ scale: starScale }] }}>
+                  <MaterialIcons
+                    name={isFavorite ? 'star' : 'star-border'}
+                    size={26}
+                    color={isFavorite ? '#FFC107' : '#BBB'}
+                  />
+                </Animated.View>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
 
@@ -298,6 +348,18 @@ const styles = StyleSheet.create({
     color: '#1A1A1A',
   },
   starButton: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -2,
+  },
+  titleActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  playButton: {
     width: 30,
     height: 30,
     alignItems: 'center',

@@ -214,6 +214,18 @@ frontend:
         agent: "testing"
         comment: "Frontend testing not performed as per instructions - only backend testing required."
 
+  - task: "TTS Voice Reading Loop (announcements)"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/services/speech.ts, /app/frontend/app/results.tsx, /app/frontend/src/components/ResultCard.tsx, /app/frontend/app/settings.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented TTS reading of announcements using expo-speech. Features: (1) Play/Stop button on each ResultCard reads title + summary + contacts. (2) 'Leggi tutti' button on results screen sequentially reads all announcements. (3) After each announcement the assistant asks 'Vuoi che continui con il prossimo?' with an on-screen Yes/No modal (voice-based STT deferred - Option A per user). (4) Voice preference (female/male) selectable in Settings, persisted in AsyncStorage. Default: female (based on 2025 UX research). (5) Auto-picks best available system voice per language + gender heuristic. Translations added for IT/EN/ES/FR/DE. Web preview may use browser SpeechSynthesis; native builds use platform TTS. STT (real voice reply) is a planned Option B upgrade using OpenAI Whisper."
+
 metadata:
   created_by: "testing_agent"
   version: "1.0"

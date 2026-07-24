@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   ActivityIndicator,
   Alert,
+  Modal,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -16,16 +17,22 @@ import { useAppStore } from '../src/store';
 import { TRANSLATIONS } from '../src/constants/categories';
 import { api } from '../src/services/api';
 import { SearchResult } from '../src/types';
+import { speak, stopSpeaking } from '../src/services/speech';
 
 export default function ResultsScreen() {
   const { searchId } = useLocalSearchParams<{ searchId: string }>();
-  const { language, removeActiveSearch } = useAppStore();
+  const { language, voicePreference, removeActiveSearch } = useAppStore();
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const t = TRANSLATIONS[language];
+
+  // ---- Voice reading loop state ----
+  const [readingIndex, setReadingIndex] = useState<number | null>(null); // 0-based
+  const [askContinue, setAskContinue] = useState(false); // shows continue/stop modal
+  const readingCancelledRef = useRef(false);
 
   useEffect(() => {
     loadResults();
@@ -48,6 +55,86 @@ export default function ResultsScreen() {
       setLoading(false);
     }
   };
+
+  // ---- Voice reading queue ----
+  const buildSpokenText = (r: SearchResult, index: number, total: number): string => {
+    const intro = t.voiceIntro
+      .replace('{current}', String(index + 1))
+      .replace('{total}', String(total));
+    const parts: string[] = [intro];
+    if (r.title) parts.push(r.title);
+    if (r.summary) parts.push(r.summary);
+    if (r.contacts && r.contacts.length > 0) {
+      parts.push(`${t.contacts}: ${r.contacts.join(', ')}`);
+    }
+    return parts.join('. ');
+  };
+
+  const readAtIndex = useCallback(
+    async (index: number) => {
+      if (readingCancelledRef.current) return;
+      const total = results.length;
+      if (index >= total) {
+        // finished all
+        setReadingIndex(null);
+        setAskContinue(false);
+        await speak(t.voiceFinal, { language, gender: voicePreference });
+        return;
+      }
+      setReadingIndex(index);
+      setAskContinue(false);
+
+      const text = buildSpokenText(results[index], index, total);
+      await speak(text, { language, gender: voicePreference });
+
+      if (readingCancelledRef.current) return;
+
+      // If there's a next one, ask the user before continuing.
+      if (index + 1 < total) {
+        setAskContinue(true);
+        // Voice prompt asking to continue
+        await speak(t.voiceOutro, { language, gender: voicePreference });
+      } else {
+        setReadingIndex(null);
+        await speak(t.voiceFinal, { language, gender: voicePreference });
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [results, language, voicePreference, t]
+  );
+
+  const startReadAll = () => {
+    if (results.length === 0) return;
+    readingCancelledRef.current = false;
+    setAskContinue(false);
+    readAtIndex(0);
+  };
+
+  const stopReadAll = () => {
+    readingCancelledRef.current = true;
+    stopSpeaking();
+    setReadingIndex(null);
+    setAskContinue(false);
+  };
+
+  const handleContinueYes = () => {
+    if (readingIndex === null) return;
+    setAskContinue(false);
+    stopSpeaking(); // stop the "vuoi continuare?" prompt
+    readAtIndex(readingIndex + 1);
+  };
+
+  const handleContinueNo = () => {
+    stopReadAll();
+  };
+
+  // Stop any reading when the screen unmounts
+  useEffect(() => {
+    return () => {
+      readingCancelledRef.current = true;
+      stopSpeaking();
+    };
+  }, []);
 
   const enterSelectionMode = useCallback((initialId?: string) => {
     setSelectionMode(true);
@@ -225,13 +312,53 @@ export default function ResultsScreen() {
       ) : (
         <>
           {!selectionMode && results.length > 0 && (
-            <View style={styles.hintBar}>
-              <MaterialIcons name="touch-app" size={16} color="#888" />
-              <Text style={styles.hintText}>
-                {language === 'it'
-                  ? 'Tieni premuto un annuncio per selezionare più elementi'
-                  : 'Long press a result to select multiple items'}
-              </Text>
+            <View style={styles.actionsBar}>
+              {readingIndex === null ? (
+                <TouchableOpacity
+                  style={styles.readAllButton}
+                  onPress={startReadAll}
+                  testID="read-all-button"
+                  activeOpacity={0.85}
+                >
+                  <MaterialIcons name="volume-up" size={18} color="#FFF" />
+                  <Text style={styles.readAllText}>{t.readAll}</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.readingBar}>
+                  <View style={styles.readingInfo}>
+                    <ActivityIndicator size="small" color="#007AFF" />
+                    <Text style={styles.readingText}>
+                      {t.readingOf
+                        .replace('{current}', String((readingIndex ?? 0) + 1))
+                        .replace('{total}', String(results.length))}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.stopBtn}
+                    onPress={stopReadAll}
+                    testID="stop-read-all-button"
+                    activeOpacity={0.85}
+                  >
+                    <MaterialIcons name="stop" size={16} color="#FFF" />
+                    <Text style={styles.stopBtnText}>{t.stopReading}</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              <View style={styles.hintRow}>
+                <MaterialIcons name="touch-app" size={14} color="#888" />
+                <Text style={styles.hintText}>
+                  {language === 'it'
+                    ? 'Tieni premuto un annuncio per selezionarne più'
+                    : language === 'es'
+                    ? 'Mantén pulsado un anuncio para seleccionar varios'
+                    : language === 'fr'
+                    ? 'Appuyez longuement sur une annonce pour en sélectionner plusieurs'
+                    : language === 'de'
+                    ? 'Halte eine Anzeige gedrückt, um mehrere auszuwählen'
+                    : 'Long press a result to select multiple items'}
+                </Text>
+              </View>
             </View>
           )}
 
@@ -283,6 +410,50 @@ export default function ResultsScreen() {
           )}
         </>
       )}
+
+      {/* Continue-reading confirmation modal */}
+      <Modal
+        visible={askContinue}
+        transparent
+        animationType="fade"
+        onRequestClose={handleContinueNo}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalIconWrap}>
+              <MaterialIcons name="record-voice-over" size={30} color="#007AFF" />
+            </View>
+            <Text style={styles.modalTitle}>{t.continueReading}</Text>
+            {readingIndex !== null && (
+              <Text style={styles.modalSubtitle}>
+                {t.readingOf
+                  .replace('{current}', String((readingIndex ?? 0) + 1))
+                  .replace('{total}', String(results.length))}
+              </Text>
+            )}
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnSecondary]}
+                onPress={handleContinueNo}
+                testID="read-continue-no"
+                activeOpacity={0.85}
+              >
+                <MaterialIcons name="stop" size={18} color="#D14343" />
+                <Text style={styles.modalBtnSecondaryText}>{t.continueNo}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnPrimary]}
+                onPress={handleContinueYes}
+                testID="read-continue-yes"
+                activeOpacity={0.85}
+              >
+                <MaterialIcons name="skip-next" size={18} color="#FFF" />
+                <Text style={styles.modalBtnPrimaryText}>{t.continueYes}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -322,6 +493,72 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     backgroundColor: '#FAFAFA',
+  },
+  actionsBar: {
+    backgroundColor: '#FFF',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+    gap: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#EEE',
+  },
+  readAllButton: {
+    backgroundColor: '#007AFF',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  readAllText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  readingBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    backgroundColor: '#EEF6FF',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  readingInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  readingText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0056B3',
+  },
+  stopBtn: {
+    backgroundColor: '#D14343',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  stopBtnText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  hintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
   },
   hintText: {
     fontSize: 12,
@@ -376,5 +613,78 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 15,
     fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#FFF',
+    borderRadius: 18,
+    padding: 22,
+    alignItems: 'center',
+    gap: 8,
+    boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+    elevation: 10,
+  },
+  modalIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#EEF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#111',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: '#666',
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
+    width: '100%',
+  },
+  modalBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  modalBtnPrimary: {
+    backgroundColor: '#007AFF',
+  },
+  modalBtnPrimaryText: {
+    color: '#FFF',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  modalBtnSecondary: {
+    backgroundColor: '#FFF0EF',
+    borderWidth: 1,
+    borderColor: '#F5C2C2',
+  },
+  modalBtnSecondaryText: {
+    color: '#D14343',
+    fontWeight: '800',
+    fontSize: 14,
   },
 });

@@ -46,9 +46,19 @@ Mobile-first AI assistant that monitors the web in background across specialized
 - Extracted `/api/admin/analytics/*` into `backend/routers/analytics.py` via factory pattern (`build_analytics_router(db, require_admin)`) — no circular imports
 - Reduced `server.py` from 1506 → 1222 lines while keeping all tests green
 
+### Voice Assistant / TTS Announcement Reading (2026-07-24) ✅
+- **Library:** `expo-speech` (Option A: fast, offline, easily upgradable to OpenAI TTS + Whisper STT later)
+- **Default voice:** Female (per 2025 UX research showing users generally rate female voices as warmer/more competent)
+- **Voice preference toggle** (Female/Male) in Settings, persisted via AsyncStorage
+- **Per-card ▶️ Play/⏹ Stop button** in `ResultCard.tsx` reads title + summary + contacts of a single announcement
+- **"Leggi tutti" button** in `results.tsx` reads announcements sequentially with intro ("Ecco l'annuncio 1 di N")
+- **Conversational loop:** After each announcement (except the last), the assistant speaks *"Vuoi che continui con il prossimo?"* and presents an on-screen modal with **Sì, continua** / **No, ferma** buttons
+- **Full multilingual support:** IT / EN / ES / FR / DE — auto-picks best system voice matching locale + gender preference
+- **STT (voice reply)** deferred to a future upgrade (Option B: OpenAI Whisper via Emergent LLM Key)
+
 ## Pending
+- STT integration (voice reply "Sì / No" via OpenAI Whisper) — Voice Loop Phase B
 - Stripe integration (monthly/annual subscriptions) — Phase 2C
-- Analytics dashboard with time filters + custom date picker + charts — Phase 2D
 - Ruoli plans lifecycle (mark expired, upgrade/downgrade)
 - Password recovery via email (deferred)
 - Serper API key (user optional)
