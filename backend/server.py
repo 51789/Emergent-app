@@ -1220,6 +1220,10 @@ app.include_router(api_router)
 from routers.analytics import build_analytics_router  # noqa: E402
 app.include_router(build_analytics_router(db, require_admin), prefix="/api")
 
+# Mount the billing (Stripe subscriptions) sub-router under /api
+from routers.billing import build_billing_router  # noqa: E402
+app.include_router(build_billing_router(db, get_current_user), prefix="/api")
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,

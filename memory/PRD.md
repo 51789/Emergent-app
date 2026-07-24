@@ -56,9 +56,19 @@ Mobile-first AI assistant that monitors the web in background across specialized
 - **Full multilingual support:** IT / EN / ES / FR / DE — auto-picks best system voice matching locale + gender preference
 - **STT (voice reply)** deferred to a future upgrade (Option B: OpenAI Whisper via Emergent LLM Key)
 
+### Stripe Subscriptions — Phase 2C (2026-07-24) ✅
+- **Backend router** `backend/routers/billing.py` mounted at `/api/billing/*` using factory pattern
+- **Integration:** `emergentintegrations.payments.stripe.checkout.StripeCheckout` with `sk_test_emergent` (routes via Emergent proxy)
+- **Endpoints:** `POST /billing/checkout`, `GET /billing/status/{session_id}`, `GET /billing/me`, `POST /billing/cancel`
+- **Prices (server-side source of truth):** PRO €2,99/mo, €29,99/yr — PREMIUM €4,99/mo, €49,99/yr
+- **User doc updates on paid:** `plan`, `plan_expires_at` (+30d or +365d, extending from current expiry if still active), `subscription_active`, `billing_cycle`
+- **Idempotency:** transactions collection tracks each session's `status: initiated | applied`, so `/status` only extends the plan once per session
+- **Frontend** `app/subscribe.tsx` rewritten: Monthly/Yearly toggle (-17% savings on annuale), 4 real prices, opens Stripe hosted Checkout via `window.location.assign` on web / `WebBrowser.openAuthSessionAsync` on native, polls `/billing/status` on return, shows current-plan banner with Cancel link
+- **Note:** Uses one-off `mode=payment` Stripe sessions (MVP). True recurring `mode=subscription` + webhook lifecycle events is a future upgrade.
+
 ## Pending
 - STT integration (voice reply "Sì / No" via OpenAI Whisper) — Voice Loop Phase B
-- Stripe integration (monthly/annual subscriptions) — Phase 2C
+- Stripe **true recurring subscriptions** (mode=subscription + webhook handlers) — Phase 2C.1
 - Ruoli plans lifecycle (mark expired, upgrade/downgrade)
 - Password recovery via email (deferred)
 - Serper API key (user optional)

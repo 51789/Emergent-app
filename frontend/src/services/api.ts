@@ -1,5 +1,6 @@
 import Constants from 'expo-constants';
 import { SearchQuery, SearchResult, ProcessedSearch } from '../types';
+import { loadToken } from './tokenStorage';
 
 const API_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -8,6 +9,11 @@ if (!API_URL) {
 }
 
 const BASE_URL = `${API_URL}/api`;
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = await loadToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 export const api = {
   // Create a new search
@@ -162,6 +168,65 @@ export const api = {
       method: 'POST',
     });
     if (!response.ok) throw new Error('Failed to clear notifications');
+    return response.json();
+  },
+
+  // ---------- Billing / Stripe subscriptions ----------
+  async billingCheckout(
+    plan: 'pro' | 'premium',
+    billing_cycle: 'monthly' | 'yearly',
+    success_url: string,
+    cancel_url: string
+  ): Promise<{ url: string; session_id: string; amount: number; currency: string }> {
+    const headers = await authHeaders();
+    const response = await fetch(`${BASE_URL}/billing/checkout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify({ plan, billing_cycle, success_url, cancel_url }),
+    });
+    if (!response.ok) {
+      const t = await response.text();
+      throw new Error(`Checkout failed: ${t}`);
+    }
+    return response.json();
+  },
+
+  async billingStatus(sessionId: string): Promise<{
+    session_id: string;
+    status: string;
+    payment_status: string;
+    plan_applied: boolean;
+    plan?: string;
+    billing_cycle?: string;
+    expires_at?: string;
+  }> {
+    const headers = await authHeaders();
+    const response = await fetch(`${BASE_URL}/billing/status/${sessionId}`, {
+      headers,
+    });
+    if (!response.ok) throw new Error('Failed to fetch billing status');
+    return response.json();
+  },
+
+  async billingMe(): Promise<{
+    plan: string;
+    plan_expires_at: string | null;
+    subscription_active: boolean;
+    billing_cycle: string | null;
+  }> {
+    const headers = await authHeaders();
+    const response = await fetch(`${BASE_URL}/billing/me`, { headers });
+    if (!response.ok) throw new Error('Failed to fetch billing info');
+    return response.json();
+  },
+
+  async billingCancel(): Promise<{ ok: boolean; message: string }> {
+    const headers = await authHeaders();
+    const response = await fetch(`${BASE_URL}/billing/cancel`, {
+      method: 'POST',
+      headers,
+    });
+    if (!response.ok) throw new Error('Failed to cancel subscription');
     return response.json();
   },
 };

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,35 +7,121 @@ import {
   StyleSheet,
   SafeAreaView,
   Alert,
+  ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { useAppStore } from '../src/store';
+import { api } from '../src/services/api';
+import { useAuth } from '../src/services/auth';
 
 type PlanId = 'pro' | 'premium';
+type Cycle = 'monthly' | 'yearly';
 
 interface Plan {
   id: PlanId;
   name: string;
-  price: string;
-  period: string;
+  monthlyPrice: string;
+  yearlyPrice: string;
+  monthlyAmount: number;
+  yearlyAmount: number;
   tagline: string;
   features: string[];
-  ctaLabel: string;
   highlight?: string;
 }
 
+WebBrowser.maybeCompleteAuthSession();
+
 export default function SubscribeScreen() {
   const { language } = useAppStore();
+  const { user, refreshMe } = useAuth();
+  const params = useLocalSearchParams<{ session_id?: string }>();
   const isIt = language === 'it';
+
   const [selected, setSelected] = useState<PlanId>('premium');
+  const [cycle, setCycle] = useState<Cycle>('monthly');
+  const [loadingPlan, setLoadingPlan] = useState<PlanId | null>(null);
+  const [me, setMe] = useState<{
+    plan: string;
+    plan_expires_at: string | null;
+    subscription_active: boolean;
+    billing_cycle: string | null;
+  } | null>(null);
+  const pollRef = useRef<number | null>(null);
+
+  // Load current subscription
+  const loadMe = useCallback(async () => {
+    try {
+      const data = await api.billingMe();
+      setMe(data);
+    } catch {
+      setMe(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadMe();
+  }, [loadMe]);
+
+  // When we return from Stripe with ?session_id=..., poll the status
+  useEffect(() => {
+    const sid = params?.session_id;
+    if (!sid || typeof sid !== 'string') return;
+    let attempts = 0;
+    const maxAttempts = 8;
+    const poll = async () => {
+      try {
+        const r = await api.billingStatus(sid);
+        if (r.plan_applied || r.payment_status === 'paid') {
+          Alert.alert(
+            isIt ? 'Pagamento completato' : 'Payment completed',
+            isIt
+              ? `Il tuo piano ${(r.plan || '').toUpperCase()} è ora attivo!`
+              : `Your ${(r.plan || '').toUpperCase()} plan is now active!`
+          );
+          await loadMe();
+          try {
+            await refreshMe();
+          } catch {
+            // ignore
+          }
+          return;
+        }
+        if (r.status === 'expired') {
+          Alert.alert(
+            isIt ? 'Sessione scaduta' : 'Session expired',
+            isIt
+              ? 'La sessione di pagamento è scaduta.'
+              : 'The payment session has expired.'
+          );
+          return;
+        }
+      } catch {
+        // ignore transient errors
+      }
+      attempts += 1;
+      if (attempts < maxAttempts) {
+        pollRef.current = setTimeout(poll, 2000) as unknown as number;
+      }
+    };
+    poll();
+    return () => {
+      if (pollRef.current) clearTimeout(pollRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params?.session_id]);
 
   const plans: Plan[] = [
     {
       id: 'pro',
       name: 'PRO',
-      price: '€2,99',
-      period: isIt ? 'al mese' : 'per month',
+      monthlyPrice: '€2,99',
+      yearlyPrice: '€29,99',
+      monthlyAmount: 2.99,
+      yearlyAmount: 29.99,
       tagline: isIt
         ? 'Per chi cerca con moderazione'
         : 'For casual users',
@@ -52,13 +138,14 @@ export default function SubscribeScreen() {
             'Standard notifications',
             'Search history',
           ],
-      ctaLabel: isIt ? 'Scegli PRO' : 'Choose PRO',
     },
     {
       id: 'premium',
       name: 'PREMIUM',
-      price: '€4,99',
-      period: isIt ? 'al mese' : 'per month',
+      monthlyPrice: '€4,99',
+      yearlyPrice: '€49,99',
+      monthlyAmount: 4.99,
+      yearlyAmount: 49.99,
       tagline: isIt
         ? 'Per il monitoraggio continuo'
         : 'For continuous monitoring',
@@ -78,18 +165,121 @@ export default function SubscribeScreen() {
             'Early access to new agents',
             'Ad-free experience',
           ],
-      ctaLabel: isIt ? 'Scegli PREMIUM' : 'Choose PREMIUM',
     },
   ];
 
-  const handleSubscribe = (planId: PlanId) => {
+  const handleSubscribe = async (planId: PlanId) => {
+    if (!user) {
+      Alert.alert(
+        isIt ? 'Accesso richiesto' : 'Login required',
+        isIt
+          ? 'Effettua il login per sottoscrivere un abbonamento.'
+          : 'Please log in to subscribe.',
+        [
+          { text: isIt ? 'Annulla' : 'Cancel', style: 'cancel' },
+          { text: isIt ? 'Accedi' : 'Sign in', onPress: () => router.push('/login') },
+        ]
+      );
+      return;
+    }
+    try {
+      setLoadingPlan(planId);
+
+      // Build return URLs pointing back at this screen
+      const successUrl = Linking.createURL('subscribe');
+      const cancelUrl = Linking.createURL('subscribe');
+
+      const res = await api.billingCheckout(planId, cycle, successUrl, cancelUrl);
+
+      if (Platform.OS === 'web') {
+        // Open Stripe checkout in the same tab so `session_id` returns via URL
+        window.location.assign(res.url);
+        return;
+      }
+
+      // Native: open Stripe checkout in an in-app browser session
+      const result = await WebBrowser.openAuthSessionAsync(res.url, successUrl);
+      if (result.type === 'success' && result.url) {
+        // Extract session_id from the return URL and poll status
+        const parsed = Linking.parse(result.url);
+        const sid = (parsed.queryParams?.session_id as string) || res.session_id;
+        // Poll once immediately, then again if needed
+        const status = await api.billingStatus(sid);
+        if (status.plan_applied || status.payment_status === 'paid') {
+          Alert.alert(
+            isIt ? 'Pagamento completato' : 'Payment completed',
+            isIt
+              ? `Il tuo piano ${(status.plan || '').toUpperCase()} è ora attivo!`
+              : `Your ${(status.plan || '').toUpperCase()} plan is now active!`
+          );
+          await loadMe();
+          try {
+            await refreshMe();
+          } catch {
+            // ignore
+          }
+        }
+      }
+    } catch (e: any) {
+      Alert.alert(
+        isIt ? 'Errore' : 'Error',
+        e?.message || (isIt ? 'Impossibile avviare il pagamento' : 'Cannot start checkout')
+      );
+    } finally {
+      setLoadingPlan(null);
+    }
+  };
+
+  const handleCancel = () => {
     Alert.alert(
-      isIt ? 'Abbonamento' : 'Subscription',
+      isIt ? 'Annulla abbonamento' : 'Cancel subscription',
       isIt
-        ? `Grazie per aver scelto il piano ${planId.toUpperCase()}! La sottoscrizione sarà disponibile a breve.`
-        : `Thanks for choosing the ${planId.toUpperCase()} plan! Subscription will be available soon.`,
-      [{ text: 'OK' }]
+        ? 'Il rinnovo automatico sarà disattivato. Conserverai l\'accesso fino alla data di scadenza.'
+        : 'Auto-renewal will be disabled. You will keep access until the expiry date.',
+      [
+        { text: isIt ? 'Annulla' : 'Cancel', style: 'cancel' },
+        {
+          text: isIt ? 'Conferma' : 'Confirm',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.billingCancel();
+              await loadMe();
+              Alert.alert(
+                isIt ? 'Fatto' : 'Done',
+                isIt ? 'Rinnovo disattivato.' : 'Auto-renewal disabled.'
+              );
+            } catch {
+              Alert.alert(
+                isIt ? 'Errore' : 'Error',
+                isIt ? 'Impossibile annullare' : 'Cannot cancel'
+              );
+            }
+          },
+        },
+      ]
     );
+  };
+
+  const currentPlan = (me?.plan || 'free').toLowerCase();
+  const showCancel =
+    !!me &&
+    me.subscription_active &&
+    currentPlan !== 'free' &&
+    !!me.plan_expires_at;
+
+  const formatExpiry = (iso: string | null) => {
+    if (!iso) return '';
+    try {
+      const d = new Date(iso);
+      return d.toLocaleDateString(language === 'it' ? 'it-IT' : 'en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+    } catch {
+      return iso;
+    }
   };
 
   return (
@@ -129,10 +319,67 @@ export default function SubscribeScreen() {
           </Text>
         </View>
 
+        {/* Current plan banner */}
+        {me && currentPlan !== 'free' && (
+          <View style={styles.currentBanner}>
+            <MaterialIcons name="verified" size={22} color="#0A7A2F" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.currentBannerTitle}>
+                {(isIt ? 'Piano attuale: ' : 'Current plan: ') + currentPlan.toUpperCase()}
+              </Text>
+              {me.plan_expires_at && (
+                <Text style={styles.currentBannerSub}>
+                  {me.subscription_active
+                    ? (isIt ? 'Rinnovo il ' : 'Renews on ') + formatExpiry(me.plan_expires_at)
+                    : (isIt ? 'Attivo fino al ' : 'Active until ') + formatExpiry(me.plan_expires_at)}
+                </Text>
+              )}
+            </View>
+            {showCancel && (
+              <TouchableOpacity onPress={handleCancel} testID="cancel-subscription">
+                <Text style={styles.cancelLink}>
+                  {isIt ? 'Annulla' : 'Cancel'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {/* Billing cycle toggle */}
+        <View style={styles.cycleToggle}>
+          <TouchableOpacity
+            style={[styles.cycleBtn, cycle === 'monthly' && styles.cycleBtnActive]}
+            onPress={() => setCycle('monthly')}
+            testID="cycle-monthly"
+            activeOpacity={0.85}
+          >
+            <Text style={[styles.cycleBtnText, cycle === 'monthly' && styles.cycleBtnTextActive]}>
+              {isIt ? 'Mensile' : 'Monthly'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.cycleBtn, cycle === 'yearly' && styles.cycleBtnActive]}
+            onPress={() => setCycle('yearly')}
+            testID="cycle-yearly"
+            activeOpacity={0.85}
+          >
+            <Text style={[styles.cycleBtnText, cycle === 'yearly' && styles.cycleBtnTextActive]}>
+              {isIt ? 'Annuale' : 'Yearly'}
+            </Text>
+            <View style={styles.savingsPill}>
+              <Text style={styles.savingsText}>-17%</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
         {/* Plans */}
         {plans.map((plan) => {
           const isSelected = selected === plan.id;
           const isPremium = plan.id === 'premium';
+          const price = cycle === 'monthly' ? plan.monthlyPrice : plan.yearlyPrice;
+          const period = cycle === 'monthly'
+            ? (isIt ? 'al mese' : 'per month')
+            : (isIt ? 'all\'anno' : 'per year');
 
           return (
             <TouchableOpacity
@@ -161,10 +408,7 @@ export default function SubscribeScreen() {
                     color={isSelected ? '#007AFF' : '#CCC'}
                   />
                   <Text
-                    style={[
-                      styles.planName,
-                      isPremium && styles.planNamePremium,
-                    ]}
+                    style={[styles.planName, isPremium && styles.planNamePremium]}
                     testID={`plan-name-${plan.id}`}
                   >
                     {plan.name}
@@ -174,15 +418,10 @@ export default function SubscribeScreen() {
               </View>
 
               <View style={styles.priceRow}>
-                <Text
-                  style={[
-                    styles.priceAmount,
-                    isPremium && styles.priceAmountPremium,
-                  ]}
-                >
-                  {plan.price}
+                <Text style={[styles.priceAmount, isPremium && styles.priceAmountPremium]}>
+                  {price}
                 </Text>
-                <Text style={styles.pricePeriod}>{plan.period}</Text>
+                <Text style={styles.pricePeriod}>{period}</Text>
               </View>
 
               <View style={styles.divider} />
@@ -196,11 +435,7 @@ export default function SubscribeScreen() {
                         isPremium && styles.checkCirclePremium,
                       ]}
                     >
-                      <MaterialIcons
-                        name="check"
-                        size={12}
-                        color="#FFF"
-                      />
+                      <MaterialIcons name="check" size={12} color="#FFF" />
                     </View>
                     <Text style={styles.featureText}>{feat}</Text>
                   </View>
@@ -211,26 +446,32 @@ export default function SubscribeScreen() {
                 style={[
                   styles.planCta,
                   isPremium ? styles.planCtaPremium : styles.planCtaPro,
+                  loadingPlan === plan.id && { opacity: 0.6 },
                 ]}
                 onPress={() => handleSubscribe(plan.id)}
+                disabled={loadingPlan !== null}
                 activeOpacity={0.85}
                 testID={`subscribe-${plan.id}`}
               >
-                <Text
-                  style={[
-                    styles.planCtaText,
-                    isPremium
-                      ? styles.planCtaTextPremium
-                      : styles.planCtaTextPro,
-                  ]}
-                >
-                  {plan.ctaLabel}
-                </Text>
-                <MaterialIcons
-                  name="arrow-forward"
-                  size={18}
-                  color={isPremium ? '#FFF' : '#007AFF'}
-                />
+                {loadingPlan === plan.id ? (
+                  <ActivityIndicator size="small" color={isPremium ? '#FFF' : '#007AFF'} />
+                ) : (
+                  <>
+                    <Text
+                      style={[
+                        styles.planCtaText,
+                        isPremium ? styles.planCtaTextPremium : styles.planCtaTextPro,
+                      ]}
+                    >
+                      {isIt ? `Scegli ${plan.name}` : `Choose ${plan.name}`}
+                    </Text>
+                    <MaterialIcons
+                      name="arrow-forward"
+                      size={18}
+                      color={isPremium ? '#FFF' : '#007AFF'}
+                    />
+                  </>
+                )}
               </TouchableOpacity>
             </TouchableOpacity>
           );
@@ -241,8 +482,8 @@ export default function SubscribeScreen() {
           <MaterialIcons name="info-outline" size={14} color="#999" />
           <Text style={styles.smallPrint}>
             {isIt
-              ? 'Cancella quando vuoi • 7 giorni di prova gratuita • Nessun impegno'
-              : 'Cancel anytime • 7-day free trial • No commitment'}
+              ? 'Pagamento sicuro tramite Stripe • Cancella quando vuoi • Nessun impegno'
+              : 'Secure payment via Stripe • Cancel anytime • No commitment'}
           </Text>
         </View>
       </ScrollView>
@@ -289,7 +530,7 @@ const styles = StyleSheet.create({
   },
   hero: {
     alignItems: 'center',
-    marginBottom: 28,
+    marginBottom: 20,
   },
   heroIconWrapper: {
     width: 64,
@@ -312,6 +553,73 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
   },
+  currentBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#E8F5E9',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#B7DFC0',
+  },
+  currentBannerTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0A7A2F',
+  },
+  currentBannerSub: {
+    fontSize: 12,
+    color: '#3B7D50',
+    marginTop: 2,
+  },
+  cancelLink: {
+    fontSize: 13,
+    color: '#D14343',
+    fontWeight: '700',
+  },
+  cycleToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#EDEEF0',
+  },
+  cycleBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 9,
+  },
+  cycleBtnActive: {
+    backgroundColor: '#007AFF',
+  },
+  cycleBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#555',
+  },
+  cycleBtnTextActive: {
+    color: '#FFF',
+  },
+  savingsPill: {
+    backgroundColor: '#FFC107',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  savingsText: {
+    color: '#3A2F00',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.3,
+  },
   planCard: {
     backgroundColor: '#FFF',
     borderRadius: 16,
@@ -319,10 +627,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 2,
     borderColor: '#EDEEF0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
+    boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
     elevation: 2,
     position: 'relative',
   },

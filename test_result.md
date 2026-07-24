@@ -226,6 +226,18 @@ frontend:
         agent: "main"
         comment: "Implemented TTS reading of announcements using expo-speech. Features: (1) Play/Stop button on each ResultCard reads title + summary + contacts. (2) 'Leggi tutti' button on results screen sequentially reads all announcements. (3) After each announcement the assistant asks 'Vuoi che continui con il prossimo?' with an on-screen Yes/No modal (voice-based STT deferred - Option A per user). (4) Voice preference (female/male) selectable in Settings, persisted in AsyncStorage. Default: female (based on 2025 UX research). (5) Auto-picks best available system voice per language + gender heuristic. Translations added for IT/EN/ES/FR/DE. Web preview may use browser SpeechSynthesis; native builds use platform TTS. STT (real voice reply) is a planned Option B upgrade using OpenAI Whisper."
 
+  - task: "Stripe Checkout Subscription Flow (Phase 2C)"
+    implemented: true
+    working: true
+    file: "/app/backend/routers/billing.py, /app/frontend/app/subscribe.tsx, /app/frontend/src/services/api.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Implemented Stripe Checkout via emergentintegrations.payments.stripe.checkout (sk_test_emergent proxy). Backend endpoints: POST /api/billing/checkout (creates Session), GET /api/billing/status/{session_id} (polls, applies plan idempotently), GET /api/billing/me, POST /api/billing/cancel. Server-side price map: PRO €2.99/mo €29.99/yr, PREMIUM €4.99/mo €49.99/yr. On paid status, extends user.plan_expires_at by 30d/365d (extending from current expiry if still valid). Frontend: subscribe.tsx has Monthly/Yearly toggle, current-plan banner with cancel link, opens Stripe in same tab (web) or WebBrowser.openAuthSessionAsync (native), polls status on ?session_id return. Uses one-off payment mode (not true recurring subscription) as MVP — future upgrade to mode=subscription with webhooks. Verified all 4 price combos return correct amounts via live Stripe test API calls. Auth token forwarded via Bearer header from AsyncStorage/SecureStore."
+
 metadata:
   created_by: "testing_agent"
   version: "1.0"
