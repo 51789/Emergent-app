@@ -310,7 +310,7 @@ export default function SubscribeScreen() {
             <MaterialIcons name="workspace-premium" size={32} color="#B8860B" />
           </View>
           <Text style={styles.heroTitle}>
-            {isIt ? 'Sblocca tutto JARVIS' : 'Unlock all of JARVIS'}
+            {isIt ? 'Sblocca tutto CONNECTA' : 'Unlock all of CONNECTA'}
           </Text>
           <Text style={styles.heroSubtitle}>
             {isIt

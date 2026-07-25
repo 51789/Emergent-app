@@ -16,6 +16,7 @@ import { router } from 'expo-router';
 import { useAuth } from '../src/services/auth';
 import { useAppStore } from '../src/store';
 import { TRANSLATIONS } from '../src/constants/categories';
+import { BrandLogo } from '../src/components/BrandLogo';
 
 type Mode = 'signin' | 'signup';
 
@@ -107,7 +108,9 @@ export default function LoginScreen() {
             <View style={styles.logoWrap}>
               <MaterialIcons name="verified-user" size={30} color="#007AFF" />
             </View>
-            <Text style={styles.brand}>JARVIS</Text>
+            <View style={{ marginBottom: 12 }}>
+              <BrandLogo size={26} color="#0A0A0A" letterSpacing={2} />
+            </View>
             <Text style={styles.title}>
               {isSignup ? t.createAccount : t.welcomeBack}
             </Text>

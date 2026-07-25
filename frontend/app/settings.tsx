@@ -18,6 +18,7 @@ import { api } from '../src/services/api';
 import { PremiumCard } from '../src/components/PremiumCard';
 import { useAuth } from '../src/services/auth';
 import { FlagCircle } from '../src/components/FlagCircle';
+import { BrandLogo } from '../src/components/BrandLogo';
 
 export default function SettingsScreen() {
   const { language, setLanguage, voicePreference, setVoicePreference } = useAppStore();
@@ -336,7 +337,9 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t.about}</Text>
           <View style={styles.aboutCard}>
-            <Text style={styles.appName}>JARVIS</Text>
+            <View style={{ marginBottom: 8 }}>
+              <BrandLogo size={28} color="#0A0A0A" letterSpacing={2} />
+            </View>
             <Text style={styles.appSubtitle}>
               {language === 'it'
                 ? 'Il tuo assistente digitale'

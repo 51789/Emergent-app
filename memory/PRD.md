@@ -1,4 +1,6 @@
-# JARVIS – Il tuo assistente digitale
+# CONNECTA – Il tuo assistente digitale
+
+> Rebrand from JARVIS to **CONNECTA** on 2026-07-25. The last "A" is rendered rotated 180° in all wordmarks — that's the distinctive brand mark. Same Inter-ExtraBold typeface as before.
 
 ## Product Vision
 Mobile-first AI assistant that monitors the web in background across specialized "agents" (real estate, jobs, cars, funds/bids, news, finance, entertainment, laws) and delivers filtered, dated, actionable results to the user in a clean, white-themed UI.

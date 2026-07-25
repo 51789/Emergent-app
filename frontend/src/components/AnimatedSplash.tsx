@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Dimensions, Animated, Easing, Platform } from 'react-native';
+import { BrandLogo } from './BrandLogo';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -10,12 +11,6 @@ interface AnimatedSplashProps {
 type Phase = 'logo' | 'tagline' | 'done';
 
 // Font family with system fallback in case Inter didn't load
-const FONT_BOLD = Platform.select({
-  ios: 'Inter-ExtraBold',
-  android: 'Inter-ExtraBold',
-  default: 'Inter-ExtraBold, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-});
-
 const FONT_MEDIUM = Platform.select({
   ios: 'Inter-Medium',
   android: 'Inter-Medium',
@@ -154,7 +149,7 @@ export const AnimatedSplash: React.FC<AnimatedSplashProps> = ({ onFinish }) => {
 
   return (
     <View style={styles.container} testID="animated-splash" pointerEvents="none">
-      {/* JARVIS Wordmark */}
+      {/* CONNECTA Wordmark */}
       <Animated.View
         style={[
           styles.logoContainer,
@@ -164,9 +159,7 @@ export const AnimatedSplash: React.FC<AnimatedSplashProps> = ({ onFinish }) => {
           },
         ]}
       >
-        <Text style={[styles.logo, { fontFamily: FONT_BOLD }]} testID="splash-logo">
-          JARVIS
-        </Text>
+        <BrandLogo size={56} color="#0A0A0A" letterSpacing={3} testID="splash-logo" />
         <Animated.View
           style={[styles.cursorDot, { opacity: cursorOpacity }]}
         />
