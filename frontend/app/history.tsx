@@ -12,8 +12,9 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAppStore } from '../src/store';
-import { TRANSLATIONS, CATEGORIES } from '../src/constants/categories';
+import { CATEGORIES } from '../src/constants/categories';
 import { api } from '../src/services/api';
+import { BrandLogo } from '../src/components/BrandLogo';
 
 export default function HistoryScreen() {
   const { language, setActiveSearches, activeSearches } = useAppStore();
@@ -21,7 +22,6 @@ export default function HistoryScreen() {
   const [deleting, setDeleting] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const t = TRANSLATIONS[language];
 
   useEffect(() => {
     loadSearches();
@@ -161,10 +161,7 @@ export default function HistoryScreen() {
             >
               <MaterialIcons name="close" size={26} color="#333" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>
-              {selectedIds.size}{' '}
-              {language === 'it' ? 'selezionate' : 'selected'}
-            </Text>
+            <BrandLogo size={20} color="#2E2E2E" letterSpacing={1} />
             <TouchableOpacity
               style={styles.iconButton}
               onPress={selectAll}
@@ -186,7 +183,7 @@ export default function HistoryScreen() {
             >
               <MaterialIcons name="arrow-back" size={28} color="#333" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>{t.history}</Text>
+            <BrandLogo size={20} color="#2E2E2E" letterSpacing={1} />
             <TouchableOpacity
               style={styles.iconButton}
               onPress={loadSearches}
@@ -197,6 +194,15 @@ export default function HistoryScreen() {
           </>
         )}
       </View>
+
+      {selectionMode && (
+        <View style={styles.selectionCountBar}>
+          <Text style={styles.selectionCountText}>
+            {selectedIds.size}{' '}
+            {language === 'it' ? 'selezionate' : 'selected'}
+          </Text>
+        </View>
+      )}
 
       {loading ? (
         <View style={styles.loadingContainer}>
@@ -360,6 +366,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#333',
+  },
+  selectionCountBar: {
+    backgroundColor: '#EEF6FF',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  selectionCountText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0056B3',
   },
   hintBar: {
     flexDirection: 'row',

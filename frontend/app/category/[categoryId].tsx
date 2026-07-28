@@ -19,6 +19,7 @@ import { useAppStore } from '../../src/store';
 import { CATEGORIES, TRANSLATIONS } from '../../src/constants/categories';
 import { CATEGORY_KEYWORDS } from '../../src/constants/keywords';
 import { api } from '../../src/services/api';
+import { BrandLogo } from '../../src/components/BrandLogo';
 
 export default function CategoryDetailScreen() {
   const { categoryId } = useLocalSearchParams<{ categoryId: string }>();
@@ -182,6 +183,7 @@ export default function CategoryDetailScreen() {
           >
             <MaterialIcons name="arrow-back" size={28} color="#333" />
           </TouchableOpacity>
+          <BrandLogo size={20} color="#2E2E2E" letterSpacing={1} />
           <View style={styles.headerSpacer} />
         </View>
 
@@ -316,8 +318,9 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    paddingVertical: 10,
   },
   backButton: {
     padding: 8,

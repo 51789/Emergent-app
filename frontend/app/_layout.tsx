@@ -58,6 +58,7 @@ export default function RootLayout() {
     'Inter-Medium': require('../assets/fonts/Inter-Medium.ttf'),
     'Inter-Bold': require('../assets/fonts/Inter-Bold.ttf'),
     'Inter-ExtraBold': require('../assets/fonts/Inter-ExtraBold.ttf'),
+    Questrial: require('../assets/fonts/Questrial-Regular.ttf'),
   });
   const [showSplash, setShowSplash] = useState(true);
   const [timedOut, setTimedOut] = useState(false);

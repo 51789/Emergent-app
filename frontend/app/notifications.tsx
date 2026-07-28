@@ -16,6 +16,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { api } from '../src/services/api';
 import { CATEGORIES, TRANSLATIONS, getCategoryLabel } from '../src/constants/categories';
 import { useAppStore } from '../src/store';
+import { BrandHeader } from '../src/components/BrandHeader';
 
 type NotificationItem = {
   id: string;
@@ -142,13 +143,7 @@ export default function NotificationsScreen() {
   if (loading && items.length === 0) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <MaterialIcons name="arrow-back" size={26} color="#333" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>{t.notifications}</Text>
-          <View style={{ width: 44 }} />
-        </View>
+        <BrandHeader onBack={() => router.back()} />
         <View style={styles.centerFill}>
           <ActivityIndicator size="large" color="#007AFF" />
         </View>
@@ -158,36 +153,25 @@ export default function NotificationsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backBtn}
-          testID="notifications-back"
-        >
-          <MaterialIcons name="arrow-back" size={26} color="#333" />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>{t.notifications}</Text>
-          {items.length > 0 && (
-            <View style={styles.headerBadge}>
-              <Text style={styles.headerBadgeText}>{items.length}</Text>
-            </View>
-          )}
-        </View>
-        <TouchableOpacity
-          onPress={handleMarkAllRead}
-          style={styles.clearBtn}
-          disabled={items.length === 0}
-          testID="notifications-mark-all"
-        >
-          <MaterialIcons
-            name="done-all"
-            size={24}
-            color={items.length === 0 ? '#CCC' : '#007AFF'}
-          />
-        </TouchableOpacity>
-      </View>
+      {/* Brand header */}
+      <BrandHeader
+        onBack={() => router.back()}
+        right={
+          <TouchableOpacity
+            onPress={handleMarkAllRead}
+            style={styles.clearBtn}
+            disabled={items.length === 0}
+            testID="notifications-mark-all"
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <MaterialIcons
+              name="done-all"
+              size={24}
+              color={items.length === 0 ? '#CCC' : '#007AFF'}
+            />
+          </TouchableOpacity>
+        }
+      />
 
       {/* Subtitle */}
       <View style={styles.subtitleWrap}>

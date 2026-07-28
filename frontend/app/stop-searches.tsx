@@ -16,6 +16,7 @@ import { api } from '../src/services/api';
 import { useAppStore } from '../src/store';
 import { CATEGORIES, TRANSLATIONS, getCategoryLabel } from '../src/constants/categories';
 import { SearchQuery } from '../src/types';
+import { BrandLogo } from '../src/components/BrandLogo';
 
 const getCategoryMeta = (categoryId: string) =>
   CATEGORIES.find((c) => c.id === categoryId) || null;
@@ -137,7 +138,7 @@ export default function StopSearchesScreen() {
           <MaterialIcons name="arrow-back" size={26} color="#333" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.title}>{t.stopSearchTitle}</Text>
+          <BrandLogo size={20} color="#2E2E2E" letterSpacing={1} />
           {searches.length > 0 && (
             <Text style={styles.subtitle}>
               {selected.size > 0

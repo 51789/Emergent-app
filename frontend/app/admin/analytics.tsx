@@ -16,6 +16,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useAuth } from '../../src/services/auth';
 import { BarChart } from '../../src/components/BarChart';
+import { BrandLogo } from '../../src/components/BrandLogo';
 import { LineChart } from '../../src/components/LineChart';
 import { CATEGORIES } from '../../src/constants/categories';
 
@@ -220,7 +221,7 @@ export default function AdminAnalyticsScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
           <MaterialIcons name="arrow-back" size={26} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.title}>Analytics</Text>
+        <BrandLogo size={20} color="#2E2E2E" letterSpacing={1} />
         <TouchableOpacity onPress={onRefresh} style={styles.iconBtn} testID="analytics-refresh">
           <MaterialIcons name="refresh" size={22} color="#007AFF" />
         </TouchableOpacity>

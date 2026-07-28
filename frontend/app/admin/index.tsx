@@ -11,6 +11,7 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useAuth } from '../../src/services/auth';
+import { BrandLogo } from '../../src/components/BrandLogo';
 
 type Stats = {
   totalUsers: number;
@@ -73,11 +74,11 @@ export default function AdminHomeScreen() {
           <MaterialIcons name="arrow-back" size={26} color="#333" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
+          <BrandLogo size={18} color="#2E2E2E" letterSpacing={1} />
           <View style={styles.adminBadge}>
-            <MaterialIcons name="admin-panel-settings" size={14} color="#B8860B" />
-            <Text style={styles.adminBadgeText}>ADMIN</Text>
+            <MaterialIcons name="admin-panel-settings" size={12} color="#B8860B" />
+            <Text style={styles.adminBadgeText}>ADMIN · Dashboard</Text>
           </View>
-          <Text style={styles.title}>Dashboard</Text>
         </View>
         <TouchableOpacity
           onPress={async () => {

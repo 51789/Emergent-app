@@ -2,63 +2,76 @@ import React from 'react';
 import { View, Text, StyleSheet, Platform, TextStyle } from 'react-native';
 
 /**
- * CONNECTA brand wordmark.
+ * CONNECTa brand wordmark.
  *
- * Renders the word "CONNECT" followed by a **rotated 'A'** (180°).
- * The rotation is applied only to the last letter so the rest of the
- * wordmark stays perfectly readable — it's the brand's distinctive mark.
+ * Renders "CONNECT" (uppercase, Questrial) + a lowercase italic "a".
+ * The trailing lowercase italic 'a' is the distinctive brand mark.
+ *
+ * Font: **Questrial** — a clean geometric sans-serif loaded via expo-font in
+ * `_layout.tsx` from `assets/fonts/Questrial-Regular.ttf`.
  *
  * Usage:
- *   <BrandLogo size={64} color="#0A0A0A" />
+ *   <BrandLogo size={64} color="#2E2E2E" />
  */
 
 interface BrandLogoProps {
   size?: number;
   color?: string;
+  /** Letter spacing for the uppercase "CONNECT". Defaults to a subtle 1.5. */
   letterSpacing?: number;
   style?: TextStyle;
   testID?: string;
 }
 
-const FONT_BOLD = Platform.select({
-  ios: 'Inter-ExtraBold',
-  android: 'Inter-ExtraBold',
-  default: 'Inter-ExtraBold, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+// Questrial is a single-weight font. We rely on OS/RN italic synthesis for the
+// trailing lowercase "a" — this produces a natural cursive slant on web and
+// works cross-platform.
+const QUESTRIAL_FAMILY = Platform.select({
+  ios: 'Questrial',
+  android: 'Questrial',
+  default: 'Questrial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
 });
 
 export const BrandLogo: React.FC<BrandLogoProps> = ({
   size = 32,
-  color = '#0A0A0A',
-  letterSpacing = 2,
+  color = '#2E2E2E',
+  letterSpacing = 1.5,
   style,
   testID,
 }) => {
   const baseStyle: TextStyle = {
-    fontFamily: FONT_BOLD,
+    fontFamily: QUESTRIAL_FAMILY,
     fontSize: size,
-    fontWeight: '800',
+    // Questrial has only Regular; force weight to normal so RN Web doesn't
+    // synthesise a bold that would break the geometric look.
+    fontWeight: '400',
     color,
     letterSpacing,
+    // Baseline alignment inside the row
+    includeFontPadding: false,
+    // Prevent line-height inflation on Android
+    lineHeight: size * 1.1,
     ...style,
   };
 
   return (
     <View style={styles.row} testID={testID ?? 'brand-logo'}>
-      <Text style={baseStyle}>CONNECT</Text>
+      <Text style={baseStyle} allowFontScaling={false}>
+        CONNECT
+      </Text>
       <Text
+        allowFontScaling={false}
         style={[
           baseStyle,
           {
-            // Rotate the last "A" 180° — the distinctive brand mark.
-            transform: [{ rotate: '180deg' }],
-            // With rotation the visual optical spacing feels off — nudge slightly.
-            marginLeft: letterSpacing,
-            // Slightly bump down so the rotated A sits on the baseline nicely.
-            lineHeight: size,
+            fontStyle: 'italic',
+            // Tighten spacing between the T and the italic 'a'
+            letterSpacing: 0,
+            marginLeft: 0,
           },
         ]}
       >
-        A
+        a
       </Text>
     </View>
   );
@@ -67,7 +80,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline',
     justifyContent: 'center',
   },
 });

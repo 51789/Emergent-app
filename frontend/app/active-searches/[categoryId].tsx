@@ -16,6 +16,7 @@ import { api } from '../../src/services/api';
 import { useAppStore } from '../../src/store';
 import { CATEGORIES, TRANSLATIONS, getCategoryLabel } from '../../src/constants/categories';
 import { SearchQuery } from '../../src/types';
+import { BrandLogo } from '../../src/components/BrandLogo';
 
 const formatDate = (iso: string, locale: string): string => {
   try {
@@ -118,17 +119,17 @@ export default function ActiveSearchesByCategoryScreen() {
           <MaterialIcons name="arrow-back" size={26} color="#333" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
+          <BrandLogo size={20} color="#2E2E2E" letterSpacing={1} />
           <View style={styles.headerRow}>
             {catMeta && (
-              <MaterialIcons name={catMeta.icon} size={18} color="#007AFF" />
+              <MaterialIcons name={catMeta.icon} size={14} color="#007AFF" />
             )}
-            <Text style={styles.title} numberOfLines={1}>
+            <Text style={styles.subtitle} numberOfLines={1}>
               {catMeta ? getCategoryLabel(catMeta.id, language) : (categoryId || '').toUpperCase()}
+              {' • '}
+              {searches.length} {searches.length === 1 ? `${t.searchSingular} ${t.activeSingular}` : `${t.searchPlural} ${t.activePlural}`}
             </Text>
           </View>
-          <Text style={styles.subtitle}>
-            {searches.length} {searches.length === 1 ? `${t.searchSingular} ${t.activeSingular}` : `${t.searchPlural} ${t.activePlural}`}
-          </Text>
         </View>
         <TouchableOpacity
           onPress={() => router.push(`/category/${categoryId}`)}

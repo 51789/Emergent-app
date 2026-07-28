@@ -17,6 +17,7 @@ import * as Linking from 'expo-linking';
 import { useAppStore } from '../src/store';
 import { api } from '../src/services/api';
 import { useAuth } from '../src/services/auth';
+import { BrandHeader } from '../src/components/BrandHeader';
 
 type PlanId = 'pro' | 'premium';
 type Cycle = 'monthly' | 'yearly';
@@ -284,20 +285,8 @@ export default function SubscribeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-          testID="back-button"
-        >
-          <MaterialIcons name="arrow-back" size={26} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {isIt ? 'Scegli il tuo piano' : 'Choose your plan'}
-        </Text>
-        <View style={styles.headerRight} />
-      </View>
+      {/* Brand header */}
+      <BrandHeader onBack={() => router.back()} />
 
       <ScrollView
         style={styles.content}

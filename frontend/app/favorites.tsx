@@ -3,7 +3,6 @@ import {
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
   StyleSheet,
   SafeAreaView,
   ActivityIndicator,
@@ -15,6 +14,7 @@ import { ResultCard } from '../src/components/ResultCard';
 import { useAppStore } from '../src/store';
 import { api } from '../src/services/api';
 import { SearchResult } from '../src/types';
+import { BrandHeader } from '../src/components/BrandHeader';
 
 export default function FavoritesScreen() {
   const { language } = useAppStore();
@@ -58,23 +58,8 @@ export default function FavoritesScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-          testID="back-button"
-        >
-          <MaterialIcons name="arrow-back" size={26} color="#333" />
-        </TouchableOpacity>
-        <View style={styles.headerTitleWrapper}>
-          <MaterialIcons name="star" size={22} color="#FFC107" />
-          <Text style={styles.headerTitle}>
-            {isIt ? 'Preferiti' : 'Favorites'}
-          </Text>
-        </View>
-        <View style={styles.headerRight} />
-      </View>
+      {/* Brand header */}
+      <BrandHeader onBack={() => router.back()} />
 
       {loading && favorites.length === 0 ? (
         <View style={styles.loadingContainer}>

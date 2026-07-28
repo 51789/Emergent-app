@@ -18,6 +18,7 @@ import { useAppStore } from '../src/store';
 import { CATEGORIES, TRANSLATIONS, LANGUAGES, getCategoryLabel } from '../src/constants/categories';
 import { api } from '../src/services/api';
 import { FlagCircle } from '../src/components/FlagCircle';
+import { BrandHeader } from '../src/components/BrandHeader';
 
 export default function HomeScreen() {
   const {
@@ -92,33 +93,35 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.menuButton}
-          onPress={() => router.push('/settings')}
-          testID="menu-button"
-        >
-          <MaterialIcons name="menu" size={28} color="#333" />
-        </TouchableOpacity>
-
-        <View style={styles.headerRight}>
-          <NotificationBell
-            count={notificationCount}
-            onPress={handleBellPress}
-          />
-
+      {/* Brand header with logo centered */}
+      <BrandHeader
+        left={
           <TouchableOpacity
-            style={styles.languageButton}
-            onPress={() => setLangPickerOpen(true)}
-            testID="language-button"
+            style={styles.menuButton}
+            onPress={() => router.push('/settings')}
+            testID="menu-button"
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <FlagCircle flag={currentLang.flag} size={22} />
-            <Text style={styles.languageText}>{language.toUpperCase()}</Text>
-            <MaterialIcons name="arrow-drop-down" size={22} color="#333" />
+            <MaterialIcons name="menu" size={28} color="#333" />
           </TouchableOpacity>
-        </View>
-      </View>
+        }
+        right={
+          <View style={styles.headerRight}>
+            <NotificationBell
+              count={notificationCount}
+              onPress={handleBellPress}
+            />
+            <TouchableOpacity
+              style={styles.languageButton}
+              onPress={() => setLangPickerOpen(true)}
+              testID="language-button"
+            >
+              <FlagCircle flag={currentLang.flag} size={20} />
+              <MaterialIcons name="arrow-drop-down" size={20} color="#333" />
+            </TouchableOpacity>
+          </View>
+        }
+      />
 
       <ScrollView
         style={styles.content}

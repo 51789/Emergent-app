@@ -159,10 +159,7 @@ export const AnimatedSplash: React.FC<AnimatedSplashProps> = ({ onFinish }) => {
           },
         ]}
       >
-        <BrandLogo size={56} color="#0A0A0A" letterSpacing={3} testID="splash-logo" />
-        <Animated.View
-          style={[styles.cursorDot, { opacity: cursorOpacity }]}
-        />
+        <BrandLogo size={56} color="#2E2E2E" letterSpacing={2} testID="splash-logo" />
       </Animated.View>
 
       {/* Scrolling Tagline */}
@@ -176,7 +173,7 @@ export const AnimatedSplash: React.FC<AnimatedSplashProps> = ({ onFinish }) => {
         ]}
       >
         <Text style={[styles.tagline, { fontFamily: FONT_MEDIUM }]} testID="splash-tagline">
-          il tuo assistente digitale a portata di click
+          L&apos;APP CHE TI CONNETTE CON TUTTO CIÒ CHE VUOI
         </Text>
       </Animated.View>
     </View>
@@ -218,11 +215,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tagline: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '500',
-    color: '#333',
+    color: '#4A4A4A',
     textAlign: 'center',
-    letterSpacing: 0.3,
-    lineHeight: 26,
+    letterSpacing: 0.6,
+    lineHeight: 22,
   },
 });

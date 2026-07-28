@@ -17,6 +17,7 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth, AuthUser } from '../../src/services/auth';
+import { BrandLogo } from '../../src/components/BrandLogo';
 
 type EditMode = 'create' | 'edit';
 
@@ -179,7 +180,7 @@ export default function AdminUsersScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
           <MaterialIcons name="arrow-back" size={26} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.title}>Utenti</Text>
+        <BrandLogo size={20} color="#2E2E2E" letterSpacing={1} />
         <TouchableOpacity onPress={openCreate} style={styles.iconBtn} testID="admin-create-user">
           <MaterialIcons name="person-add-alt" size={24} color="#007AFF" />
         </TouchableOpacity>

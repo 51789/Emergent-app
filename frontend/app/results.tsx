@@ -18,6 +18,7 @@ import { TRANSLATIONS } from '../src/constants/categories';
 import { api } from '../src/services/api';
 import { SearchResult } from '../src/types';
 import { speak, stopSpeaking } from '../src/services/speech';
+import { BrandLogo } from '../src/components/BrandLogo';
 
 export default function ResultsScreen() {
   const { searchId } = useLocalSearchParams<{ searchId: string }>();
@@ -262,10 +263,7 @@ export default function ResultsScreen() {
             >
               <MaterialIcons name="close" size={26} color="#333" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>
-              {selectedIds.size}{' '}
-              {language === 'it' ? 'selezionati' : 'selected'}
-            </Text>
+            <BrandLogo size={20} color="#2E2E2E" letterSpacing={1} />
             <TouchableOpacity
               style={styles.iconButton}
               onPress={selectAll}
@@ -287,7 +285,7 @@ export default function ResultsScreen() {
             >
               <MaterialIcons name="arrow-back" size={28} color="#333" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>{t.results}</Text>
+            <BrandLogo size={20} color="#2E2E2E" letterSpacing={1} />
             <TouchableOpacity
               style={styles.iconButton}
               onPress={handleDeleteWholeSearch}
@@ -303,6 +301,15 @@ export default function ResultsScreen() {
           </>
         )}
       </View>
+
+      {selectionMode && (
+        <View style={styles.selectionCountBar}>
+          <Text style={styles.selectionCountText}>
+            {selectedIds.size}{' '}
+            {language === 'it' ? 'selezionati' : 'selected'}
+          </Text>
+        </View>
+      )}
 
       {loading ? (
         <View style={styles.loadingContainer}>
@@ -484,6 +491,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#333',
+  },
+  selectionCountBar: {
+    backgroundColor: '#EEF6FF',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  selectionCountText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0056B3',
   },
   hintBar: {
     flexDirection: 'row',

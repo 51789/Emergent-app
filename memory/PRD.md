@@ -1,6 +1,10 @@
-# CONNECTA – Il tuo assistente digitale
+# CONNECTa – L'app che ti connette con tutto ciò che vuoi
 
-> Rebrand from JARVIS to **CONNECTA** on 2026-07-25. The last "A" is rendered rotated 180° in all wordmarks — that's the distinctive brand mark. Same Inter-ExtraBold typeface as before.
+> Rebrand from JARVIS → **CONNECTa** on 2026-07-25.
+> **Typography**: **Questrial** (Google Font, loaded via expo-font from local `.ttf` in assets).
+> **Wordmark**: "CONNECT" (uppercase) + lowercase italic "a" — the italic lowercase 'a' is the distinctive brand mark.
+> **Tagline**: "L'APP CHE TI CONNETTE CON TUTTO CIÒ CHE VUOI".
+> **Placement**: Displayed centered at the top of every functional screen (home, settings, notifications, favorites, history, subscribe, results, category, active-searches, stop-searches, admin/*, login).
 
 ## Product Vision
 Mobile-first AI assistant that monitors the web in background across specialized "agents" (real estate, jobs, cars, funds/bids, news, finance, entertainment, laws) and delivers filtered, dated, actionable results to the user in a clean, white-themed UI.

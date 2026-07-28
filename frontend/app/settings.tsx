@@ -19,6 +19,7 @@ import { PremiumCard } from '../src/components/PremiumCard';
 import { useAuth } from '../src/services/auth';
 import { FlagCircle } from '../src/components/FlagCircle';
 import { BrandLogo } from '../src/components/BrandLogo';
+import { BrandHeader } from '../src/components/BrandHeader';
 
 export default function SettingsScreen() {
   const { language, setLanguage, voicePreference, setVoicePreference } = useAppStore();
@@ -43,17 +44,8 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <MaterialIcons name="arrow-back" size={28} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t.settings}</Text>
-        <View style={styles.placeholder} />
-      </View>
+      {/* Brand header */}
+      <BrandHeader onBack={() => router.back()} />
 
       <ScrollView
         style={styles.content}
