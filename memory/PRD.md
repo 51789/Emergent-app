@@ -72,6 +72,19 @@ Mobile-first AI assistant that monitors the web in background across specialized
 - **Frontend** `app/subscribe.tsx` rewritten: Monthly/Yearly toggle (-17% savings on annuale), 4 real prices, opens Stripe hosted Checkout via `window.location.assign` on web / `WebBrowser.openAuthSessionAsync` on native, polls `/billing/status` on return, shows current-plan banner with Cancel link
 - **Note:** Uses one-off `mode=payment` Stripe sessions (MVP). True recurring `mode=subscription` + webhook lifecycle events is a future upgrade.
 
+### Google Sign-In (Emergent-managed OAuth) (2026-07-30) ✅
+- **Backend router** `backend/routers/google_auth.py` mounted at `/api/auth/*`
+- **Endpoints:** `POST /auth/google/session` (exchanges Emergent `session_token` for a persistent app session), `POST /auth/logout` (invalidates the token server-side)
+- **User upsert by email:** existing password-account users are matched by email — no duplicates. New Google users are created with `role="user"`, `plan="free"`, `auth_provider="google"`.
+- **Session store:** new `user_sessions` collection with `session_token` (unique), `user_id`, `expires_at` (TTL 7 days). MongoDB removes expired sessions automatically.
+- **Backend `get_current_user`** now accepts BOTH local JWTs (password login) AND Emergent session_tokens (Google login) — transparent to all API consumers.
+- **Frontend service** `src/services/googleAuth.ts` — platform-aware:
+  - **Web:** full-page redirect to `auth.emergentagent.com`, catches `session_id` from URL hash/query on mount, exchanges for `session_token` via Emergent + backend, cleans URL fragment
+  - **Native:** `WebBrowser.openAuthSessionAsync`, reads redirect URL from result, plus `Linking.getInitialURL()` cold-start fallback
+- **`AuthProvider`** extended with `signInWithGoogle()` and server-side logout via bearer token
+- **Login screen** now has an official Google "G" 4-color SVG button below the primary email/password submit, with a "oppure/or" divider — full multilingua IT/EN/ES/FR/DE
+- **Token storage** unchanged: SecureStore on native, AsyncStorage (=localStorage) on web
+
 ## Pending
 - STT integration (voice reply "Sì / No" via OpenAI Whisper) — Voice Loop Phase B
 - Stripe **true recurring subscriptions** (mode=subscription + webhook handlers) — Phase 2C.1

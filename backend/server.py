@@ -1013,22 +1013,36 @@ def _user_to_out(doc: Dict[str, Any]) -> UserOut:
 
 
 async def get_current_user(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
-    """Decode JWT and load the user. Raises 401 if invalid/inactive."""
+    """Decode JWT (email/password login) OR resolve Google session_token.
+
+    Try local JWT first; on failure fall back to a `user_sessions` lookup so that
+    Google-authenticated users (whose "token" is the Emergent session_token) can
+    use the same protected endpoints as password users.
+    """
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="Missing bearer token")
     token = authorization.split(None, 1)[1].strip()
+
+    # Path 1: local JWT
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         user_id = payload.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid token payload")
+        if user_id:
+            user = await db.users.find_one({"id": user_id}, {"_id": 0})
+            if not user or not user.get("is_active", True):
+                raise HTTPException(status_code=401, detail="User not found or inactive")
+            return user
     except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+        # Not a JWT — fall through and try Google session
+        pass
 
-    user = await db.users.find_one({"id": user_id}, {"_id": 0})
-    if not user or not user.get("is_active", True):
-        raise HTTPException(status_code=401, detail="User not found or inactive")
-    return user
+    # Path 2: Emergent Google session_token
+    from routers.google_auth import get_user_from_session_token
+    user = await get_user_from_session_token(db, token)
+    if user:
+        return user
+
+    raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 
 async def require_admin(user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
@@ -1223,6 +1237,10 @@ app.include_router(build_analytics_router(db, require_admin), prefix="/api")
 # Mount the billing (Stripe subscriptions) sub-router under /api
 from routers.billing import build_billing_router  # noqa: E402
 app.include_router(build_billing_router(db, get_current_user), prefix="/api")
+
+# Mount the Google Auth (Emergent-managed OAuth) sub-router under /api
+from routers.google_auth import build_google_auth_router  # noqa: E402
+app.include_router(build_google_auth_router(db), prefix="/api")
 
 app.add_middleware(
     CORSMiddleware,

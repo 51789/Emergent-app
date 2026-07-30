@@ -12,16 +12,39 @@ import {
   ScrollView,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import Svg, { Path } from 'react-native-svg';
 import { router } from 'expo-router';
 import { useAuth } from '../src/services/auth';
 import { useAppStore } from '../src/store';
 import { TRANSLATIONS } from '../src/constants/categories';
 import { BrandLogo } from '../src/components/BrandLogo';
 
+/** Official 4-color Google "G" glyph. */
+const GoogleGlyph: React.FC<{ size?: number }> = ({ size = 20 }) => (
+  <Svg width={size} height={size} viewBox="0 0 48 48">
+    <Path
+      fill="#4285F4"
+      d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.6-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3l5.7-5.7C33.5 6.5 29 5 24 5 12.4 5 3 14.4 3 26s9.4 21 21 21 21-9.4 21-21c0-1.6-.2-3.1-.4-4.5z"
+    />
+    <Path
+      fill="#34A853"
+      d="M6.3 14.7l6.6 4.8c1.8-4.4 6-7.5 11.1-7.5 3.1 0 5.9 1.2 8 3l5.7-5.7C33.5 6.5 29 5 24 5 16.6 5 10.2 9.3 6.3 14.7z"
+    />
+    <Path
+      fill="#FBBC05"
+      d="M24 47c5 0 9.5-1.7 12.7-4.5l-5.9-5c-1.9 1.3-4.3 2-6.8 2-5.3 0-9.7-3.4-11.3-8l-6.6 5.1C9.9 42.4 16.5 47 24 47z"
+    />
+    <Path
+      fill="#EA4335"
+      d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.3 5.6l5.9 5c-.4.3 6.1-4.4 6.1-12.6 0-1.6-.2-3.1-.4-4.5z"
+    />
+  </Svg>
+);
+
 type Mode = 'signin' | 'signup';
 
 export default function LoginScreen() {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, signInWithGoogle } = useAuth();
   const { language } = useAppStore();
   const t = TRANSLATIONS[language];
   const [mode, setMode] = useState<Mode>('signin');
@@ -29,6 +52,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
 
   const isSignup = mode === 'signup';
@@ -78,6 +102,30 @@ export default function LoginScreen() {
          language === 'de' ? 'Fehler. Erneut versuchen.' : 'Error. Try again.'));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const onGoogleSignIn = async () => {
+    setError(null);
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+      // On web the browser navigates away and this line never runs.
+      // On native we return here with a valid session.
+      router.replace('/');
+    } catch (e: any) {
+      // Ignore silent cancel
+      const msg = e?.message || '';
+      if (!/cancel/i.test(msg)) {
+        setError(msg ||
+          (language === 'it' ? 'Errore Google. Riprova.' :
+           language === 'es' ? 'Error de Google. Reintenta.' :
+           language === 'fr' ? 'Erreur Google. Réessayez.' :
+           language === 'de' ? 'Google-Fehler. Erneut versuchen.' :
+           'Google error. Try again.'));
+      }
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -185,6 +233,42 @@ export default function LoginScreen() {
                     {isSignup ? t.signUp : t.signIn}
                   </Text>
                   <MaterialIcons name="arrow-forward" size={18} color="#FFF" />
+                </>
+              )}
+            </TouchableOpacity>
+
+            {/* Divider */}
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>
+                {language === 'it' ? 'oppure' :
+                 language === 'es' ? 'o' :
+                 language === 'fr' ? 'ou' :
+                 language === 'de' ? 'oder' : 'or'}
+              </Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* Google sign-in button */}
+            <TouchableOpacity
+              style={[styles.googleBtn, googleLoading && styles.googleBtnDisabled]}
+              onPress={onGoogleSignIn}
+              disabled={googleLoading || loading}
+              activeOpacity={0.85}
+              testID="login-google"
+            >
+              {googleLoading ? (
+                <ActivityIndicator color="#4285F4" />
+              ) : (
+                <>
+                  <GoogleGlyph size={20} />
+                  <Text style={styles.googleBtnText}>
+                    {language === 'it' ? 'Continua con Google' :
+                     language === 'es' ? 'Continuar con Google' :
+                     language === 'fr' ? 'Continuer avec Google' :
+                     language === 'de' ? 'Mit Google fortfahren' :
+                     'Continue with Google'}
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
@@ -320,6 +404,46 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.3,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 18,
+    gap: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E7EB',
+  },
+  dividerText: {
+    fontSize: 12,
+    color: '#8B8B8B',
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    textTransform: 'lowercase',
+  },
+  googleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#DADCE0',
+    paddingVertical: 12,
+    borderRadius: 12,
+    minHeight: 48,
+    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+  },
+  googleBtnDisabled: {
+    opacity: 0.6,
+  },
+  googleBtnText: {
+    color: '#3C4043',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   switchBtn: {
     marginTop: 8,

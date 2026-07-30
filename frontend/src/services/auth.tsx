@@ -1,6 +1,15 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import * as Linking from 'expo-linking';
 import { loadToken, saveToken } from './tokenStorage';
+import {
+  startGoogleSignIn,
+  exchangeSessionId,
+  readSessionIdFromWindow,
+  extractSessionIdFromUrl,
+  GoogleSignInResult,
+} from './googleAuth';
 
 const API_URL =
   Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL ||
@@ -26,6 +35,7 @@ export type AuthState = {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshMe: () => Promise<void>;
   authFetch: (path: string, init?: RequestInit) => Promise<any>;
@@ -54,28 +64,76 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // On mount, hydrate from persistent storage
+  // Helper: apply a Google sign-in result to state + storage
+  const applyGoogleResult = useCallback(async (res: GoogleSignInResult) => {
+    await saveToken(res.session_token);
+    setToken(res.session_token);
+    setUser(res.user as AuthUser);
+  }, []);
+
+  // On mount, hydrate from persistent storage + handle Google redirect
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       try {
+        // 1) On web: if the URL has `session_id`, process it FIRST to avoid races
+        if (Platform.OS === 'web') {
+          const sid = readSessionIdFromWindow();
+          if (sid) {
+            try {
+              const r = await exchangeSessionId(sid);
+              if (!cancelled) await applyGoogleResult(r);
+              return;
+            } catch (e) {
+              console.warn('Google session exchange failed on web:', e);
+              // fall through to try existing token
+            }
+          }
+        }
+
+        // 2) On mobile cold-start: `Linking.getInitialURL()` may contain session_id
+        if (Platform.OS !== 'web') {
+          try {
+            const initial = await Linking.getInitialURL();
+            const sid = initial ? extractSessionIdFromUrl(initial) : null;
+            if (sid) {
+              try {
+                const r = await exchangeSessionId(sid);
+                if (!cancelled) await applyGoogleResult(r);
+                return;
+              } catch (e) {
+                console.warn('Google session exchange failed on cold-start:', e);
+              }
+            }
+          } catch {
+            // ignore
+          }
+        }
+
+        // 3) Otherwise, hydrate from stored token
         const t = await loadToken();
         if (!t) {
-          setLoading(false);
+          if (!cancelled) setLoading(false);
           return;
         }
         try {
           const me = await jsonFetch('/auth/me', {}, t);
-          setToken(t);
-          setUser(me);
+          if (!cancelled) {
+            setToken(t);
+            setUser(me);
+          }
         } catch {
           // Token invalid — clear it
           await saveToken(null);
         }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [applyGoogleResult]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     const data = await jsonFetch('/auth/login', {
@@ -97,11 +155,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(data.user);
   }, []);
 
+  const signInWithGoogle = useCallback(async () => {
+    // On web this triggers a full-page redirect and returns null. When the
+    // browser comes back with `?session_id=...` the hydration effect above
+    // will pick it up on the next mount.
+    // On native the WebBrowser dismisses with a redirect URL we must parse.
+    const returnUrl = await startGoogleSignIn();
+    if (Platform.OS === 'web') return; // page will navigate
+    if (!returnUrl) throw new Error('Google sign-in cancelled');
+    const sid = extractSessionIdFromUrl(returnUrl);
+    if (!sid) throw new Error('No session_id returned from Google');
+    const r = await exchangeSessionId(sid);
+    await applyGoogleResult(r);
+  }, [applyGoogleResult]);
+
   const signOut = useCallback(async () => {
+    // Best-effort server-side logout for Google sessions
+    if (token) {
+      try {
+        await fetch(`${BASE_URL}/auth/logout`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch {
+        // ignore network errors on logout
+      }
+    }
     await saveToken(null);
     setToken(null);
     setUser(null);
-  }, []);
+  }, [token]);
 
   const refreshMe = useCallback(async () => {
     if (!token) return;
@@ -122,7 +205,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthCtx.Provider
-      value={{ token, user, loading, signIn, signUp, signOut, refreshMe, authFetch }}
+      value={{ token, user, loading, signIn, signUp, signInWithGoogle, signOut, refreshMe, authFetch }}
     >
       {children}
     </AuthCtx.Provider>
