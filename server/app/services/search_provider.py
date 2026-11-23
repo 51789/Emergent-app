@@ -110,6 +110,33 @@ class SerperProvider:
             payload["gl"] = country
         if recency:
             payload["tbs"] = recency
+        hits = self._parse(await self._request(payload))
+        resolved, missing = await self._unwrap_redirects(hits)
+        if missing is not None:
+            # Some regions return a validation page. Ask the provider for direct links on
+            # the displayed source. Never construct a destination from its breadcrumbs.
+            title = " ".join(re.findall(r"\w+", missing.title))
+            if missing.title.rstrip().endswith(("...", "…")):
+                # Serper often repeats the complete, street-specific title in the snippet.
+                lead = re.split(r"[·|\n]", missing.snippet, maxsplit=1)[0]
+                expanded = " ".join(re.findall(r"\w+", lead))
+                if title and expanded.casefold().startswith(title.casefold() + " "):
+                    title = expanded
+            title = title[:150]
+            lookup = dict(payload, q=f"site:{missing.source_domain} {title}", num=min(5, num))
+            try:
+                alternatives = self._parse(await self._request(lookup))
+            except SearchProviderError:
+                logger.info("Source lookup unavailable for %s", missing.source_domain)
+            else:
+                seen = {h.url for h in resolved}
+                for h in alternatives:
+                    if domain_of(h.url) == missing.source_domain and h.url not in seen:
+                        seen.add(h.url)
+                        resolved.append(h)
+        return resolved[:num]
+
+    async def _request(self, payload: dict[str, object]) -> dict:
         try:
             response = await self._http.post(
                 self.endpoint,
@@ -131,9 +158,11 @@ class SerperProvider:
             data = response.json()
         except ValueError as exc:
             raise SearchProviderError("Serper returned invalid JSON") from exc
-        return await self._unwrap_redirects(self._parse(data))
+        return data
 
-    async def _unwrap_redirects(self, hits: list[SearchHit]) -> list[SearchHit]:
+    async def _unwrap_redirects(
+        self, hits: list[SearchHit]
+    ) -> tuple[list[SearchHit], SearchHit | None]:
         """Replace Google redirect wrappers with their destination; drop unresolvable ones.
 
         The wrappers carry per-session tokens, so keeping them would break de-duplication and
@@ -150,7 +179,15 @@ class SerperProvider:
             return replace(hit, url=target, source_domain=domain_of(target))
 
         resolved = await asyncio.gather(*(resolve(h) for h in hits))
-        return [h for h in resolved if h is not None]
+        missing = next(
+            (
+                hit
+                for hit, result in zip(hits, resolved, strict=True)
+                if result is None and hit.source_domain != domain_of(hit.url)
+            ),
+            None,
+        )
+        return [h for h in resolved if h is not None], missing
 
     async def _resolve_redirect(self, url: str, hops: int = 3) -> tuple[str | None, str]:
         """(destination, diagnostic). Decodes `/url?q=` locally; follows up to `hops` hops."""
@@ -193,12 +230,21 @@ class SerperProvider:
             if not url or not title or not is_http_url(url):
                 continue
             image = item.get("imageUrl")
+            source = domain_of(url)
+            if is_google_redirect(url):
+                shown = str(item.get("displayedLink") or "").partition(" ")[0]
+                if is_http_url(shown):
+                    domain = domain_of(shown)
+                    if re.fullmatch(r"[a-z0-9.-]+\.[a-z]{2,}", domain) and not domain.startswith(
+                        "google."
+                    ):
+                        source = domain
             hits.append(
                 SearchHit(
                     title=title,
                     url=url,
                     snippet=(item.get("snippet") or "").strip(),
-                    source_domain=domain_of(url),
+                    source_domain=source,
                     date_text=(item.get("date") or None),
                     image_url=image if isinstance(image, str) and is_http_url(image) else None,
                     position=int(item.get("position") or len(hits) + 1),

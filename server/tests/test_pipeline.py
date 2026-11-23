@@ -593,6 +593,44 @@ async def test_serper_unwraps_google_redirect_links():
     assert redirect.calls.last.request.headers.get("user-agent") == "Mozilla/5.0"
 
 
+@respx.mock
+async def test_provider_recovers_direct_source_pages_after_a_validation_screen():
+    wrapper = "https://www.google.com/goto?url=opaque"
+    source = "https://www.pcase.it/immobili/alcamo/"
+    item = {
+        "title": "Bilocale Alcamo via ...",
+        "snippet": "Bilocale Alcamo via Roma · 650 euro",
+        "link": wrapper,
+        "displayedLink": "https://www.pcase.it › immobili",
+    }
+    route = respx.post(SerperProvider.endpoint).mock(
+        side_effect=[
+            httpx.Response(200, json={"organic": [item, item]}),
+            httpx.Response(
+                200,
+                json={
+                    "organic": [
+                        {"title": "Bilocale in via Roma", "link": source, "snippet": "650 euro"},
+                        {"title": "Wrong source", "link": "https://other.it/result"},
+                        item,
+                    ]
+                },
+            ),
+        ]
+    )
+    respx.get(wrapper).mock(return_value=httpx.Response(200, text="Validation in progress"))
+    async with httpx.AsyncClient() as http:
+        hits = await SerperProvider("k", http).search(
+            "affitto", language="it", country="it", num=10, recency=None
+        )
+    assert [(h.url, h.snippet) for h in hits] == [(source, "650 euro")]
+    assert route.call_count == 2
+    assert (
+        json.loads(route.calls.last.request.content)["q"]
+        == "site:pcase.it Bilocale Alcamo via Roma"
+    )
+
+
 def test_google_redirect_detection_and_session_param():
     from app.services.search_provider import is_google_redirect
 

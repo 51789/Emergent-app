@@ -98,7 +98,7 @@ async def test_status_becomes_scaduto_after_deadline(client, sessionmaker, user_
         uid,
         category="bandi",
         status="ATTIVO",
-        expiry_date=date.today() - timedelta(days=1),
+        expiry_date=datetime.now(UTC).date() - timedelta(days=1),
     )
     items = (await client.get(f"/searches/{sid}/results", headers=user_a["headers"])).json()[
         "items"
