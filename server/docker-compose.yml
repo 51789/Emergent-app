@@ -1,0 +1,63 @@
+# Local / single-host deployment: PostgreSQL 16 + one-off migration + API + monitoring worker.
+#   cp .env.example .env   # fill in secrets
+#   docker compose up --build
+name: consulens
+
+x-app: &app
+  build: .
+  image: consulens-server:local
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    DATABASE_URL: postgresql+asyncpg://consulens:${POSTGRES_PASSWORD:-consulens}@postgres:5432/consulens
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: consulens
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-consulens}
+      POSTGRES_DB: consulens
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U consulens -d consulens"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  migrate:
+    <<: *app
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *app
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://consulens:${POSTGRES_PASSWORD:-consulens}@postgres:5432/consulens
+      RUN_SCHEDULER_IN_PROCESS: "false"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    <<: *app
+    command: ["python", "-m", "app.worker"]
+    healthcheck:
+      disable: true
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:

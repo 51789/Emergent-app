@@ -1,0 +1,19 @@
+# Runtime dependencies (pinned). Install with: pip install -r requirements.txt
+fastapi==0.165.0
+uvicorn[standard]==0.54.0
+pydantic==2.14.4
+pydantic-settings==2.16.3
+email-validator==2.4.0
+SQLAlchemy[asyncio]==2.0.58
+asyncpg==0.32.0
+alembic==1.20.1
+httpx==0.28.1
+anthropic==2.12.0
+openai==3.57.0
+trafilatura==2.4.0
+stripe==17.1.0
+google-auth==2.63.1
+requests==2.34.2
+APScheduler==3.11.3
+bcrypt==5.0.0
+PyJWT==2.15.1
