@@ -14,6 +14,7 @@ import { checkPassword, isValidEmail } from '@/utils/validation';
 
 import { AuthLayout } from './AuthLayout';
 import { GoogleButton } from './google/GoogleButton';
+import { isGoogleConfigured } from './google/googleSignIn';
 import { registerWithPassword, signInWithGoogleIdToken, signInWithPassword } from './session';
 
 interface AuthFormProps {
@@ -138,15 +139,18 @@ export function AuthForm({ mode }: AuthFormProps) {
         testID="auth-submit"
       />
 
-      <View style={styles.divider}>
-        <View style={styles.line} />
-        <AppText variant="caption" color="textSubtle">
-          {t('common.or')}
-        </AppText>
-        <View style={styles.line} />
-      </View>
-
-      <GoogleButton onIdToken={handleGoogle} onError={setFormError} disabled={submitting} />
+      {isGoogleConfigured() ? (
+        <>
+          <View style={styles.divider}>
+            <View style={styles.line} />
+            <AppText variant="caption" color="textSubtle">
+              {t('common.or')}
+            </AppText>
+            <View style={styles.line} />
+          </View>
+          <GoogleButton onIdToken={handleGoogle} onError={setFormError} disabled={submitting} />
+        </>
+      ) : null}
 
       <View style={styles.switchRow}>
         <AppText variant="body" color="textMuted">

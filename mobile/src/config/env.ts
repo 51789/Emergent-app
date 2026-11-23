@@ -2,6 +2,8 @@
  * Public runtime configuration, read from EXPO_PUBLIC_* variables (see `.env.example`).
  * Expo inlines these at bundle time, so each one must be referenced statically.
  */
+import { Platform } from 'react-native';
+
 const apiUrl = (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/+$/, '');
 
 export const env = {
@@ -14,6 +16,6 @@ export const env = {
   voiceInputEnabled: process.env.EXPO_PUBLIC_VOICE_INPUT !== 'false',
 } as const;
 
-if (!env.apiUrl) {
+if (!env.apiUrl && Platform.OS !== 'web') {
   console.warn('EXPO_PUBLIC_API_URL is not set: API calls will fail. Copy .env.example to .env.');
 }

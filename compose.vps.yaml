@@ -1,0 +1,82 @@
+name: consulens
+
+x-db-url: &db-url postgresql+asyncpg://consulens:${POSTGRES_PASSWORD:?required}@consulens-db:5432/consulens
+x-runtime: &runtime
+  APP_ENV: production
+  DATABASE_URL: *db-url
+  JWT_SECRET: ${JWT_SECRET:?required}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  SERPER_API_KEY: ${SERPER_API_KEY:?required}
+  GOOGLE_CLIENT_IDS: ${GOOGLE_CLIENT_IDS:-}
+
+x-server: &server
+  image: consulens-server:vps
+  build: ${CONSULENS_SOURCE_DIR:-.}/server
+  networks: [app]
+  dns: [1.1.1.1, 8.8.8.8]
+
+services:
+  consulens-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: consulens
+      POSTGRES_USER: consulens
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    networks: [app]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U consulens -d consulens"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  migrate:
+    <<: *server
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: *db-url
+    depends_on:
+      consulens-db: { condition: service_healthy }
+    healthcheck: { disable: true }
+
+  consulens-api:
+    <<: *server
+    restart: unless-stopped
+    environment:
+      <<: *runtime
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  worker:
+    <<: *server
+    restart: unless-stopped
+    command: ["python", "-m", "app.worker"]
+    environment: *runtime
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck: { disable: true }
+
+  consulens-web:
+    image: consulens-web:vps
+    build:
+      context: ${CONSULENS_SOURCE_DIR:-.}/mobile
+      args:
+        EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID:-}
+    restart: unless-stopped
+    networks: [app, proxy]
+    depends_on:
+      consulens-api: { condition: service_healthy }
+
+networks:
+  app:
+    ipam:
+      config:
+        - subnet: ${CONSULENS_SUBNET:-10.213.132.0/27}
+  proxy: { external: true, name: proxy }
+
+volumes:
+  pgdata: {}

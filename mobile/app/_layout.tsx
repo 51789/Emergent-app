@@ -41,6 +41,11 @@ export default function RootLayout() {
 
   useEffect(() => {
     void bootstrapSession();
+    if (Platform.OS === 'web' && !__DEV__ && window.isSecureContext && 'serviceWorker' in navigator) {
+      void navigator.serviceWorker.register('/sw.js').catch(() => {
+        console.warn('Offline navigation is unavailable.');
+      });
+    }
   }, []);
 
   const ready = (fontsLoaded || !!fontError) && prefsHydrated && status !== 'booting';

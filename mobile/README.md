@@ -66,7 +66,7 @@ For EAS builds define the same names with `eas env:create` (environments `develo
 
 | Variable | Purpose |
 |---|---|
-| `EXPO_PUBLIC_API_URL` | Backend base URL **without** `/api/v1`. |
+| `EXPO_PUBLIC_API_URL` | Backend base URL without `/api/v1`. Leave unset for a web deployment that serves the API on the same origin. Native builds need an absolute URL. |
 | `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | Google OAuth *web* client id. Needed on every platform: it makes Google issue the ID token the backend verifies, and it is the client id of the web button. |
 | `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` | iOS OAuth client id. Also used to derive the iOS URL scheme in `app.config.ts`. |
 | `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` | Android OAuth client id (kept for documentation/consistency; Android resolves it from package name + SHA-1). |
