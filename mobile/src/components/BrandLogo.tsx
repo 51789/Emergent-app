@@ -1,47 +1,48 @@
-import { Image } from 'expo-image';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
+import Svg, { G, Path } from 'react-native-svg';
 
-/** Brand name, also used as the accessibility label. */
+import { colors } from '@/theme';
+
 export const BRAND_NAME = 'Consulens';
 
-const SOURCES = {
-  /** Lens-"C" + "ConsuLens". */
-  wordmark: require('../../assets/images/brand/logo-wordmark.png'),
-  /** Just the magnifying-glass "C". */
-  mark: require('../../assets/images/brand/logo-mark.png'),
-} as const;
-
-/** width / height of the source images, so the logo is always rendered undistorted. */
-const ASPECT = {
-  wordmark: 1185 / 302,
-  mark: 277 / 298,
-} as const;
+// Letter outlines in the coordinate system of the original Consulens artwork.
+const letterN = 'M575.5 342H604.5V358C613.2 346 626.2 340 642 340C672.5 340 691 359.6 691 390.2V457.5H662.5V394.8C662.5 375.7 652.4 365.5 636.2 365.5C617.3 365.5 604.5 378.4 604.5 396.6V457.5H575.5Z';
+const letterS = 'M792 353.2L777.6 373C768 366.1 757.3 362.6 746.9 362.6C735.5 362.6 729 366.9 729 373.4C729 380.3 736.4 382.2 751.7 386.1C774.3 391.9 795.5 398 795.5 422.2C795.5 446.3 776.1 460.2 746.2 460.2C726.2 460.2 708.2 453.5 694.5 441.6L709.8 422.5C721.8 432.2 734.4 437.2 746.4 437.2C759.2 437.2 766.3 432.4 766.3 425.4C766.3 417.8 757.8 415.4 742.1 411.3C719.7 405.5 699.6 399.2 699.6 375.8C699.6 353.4 718.9 339.3 747.1 339.3C764.4 339.3 779.8 344.1 792 353.2Z';
 
 interface BrandLogoProps {
-  /** Rendered height in dp; the width follows from the image aspect ratio. */
   height?: number;
-  variant?: keyof typeof SOURCES;
+  variant?: 'wordmark' | 'mark';
   testID?: string;
 }
 
-/** The official Consulens logo as an image (header, auth screens, boot error). */
 export function BrandLogo({ height = 28, variant = 'wordmark', testID }: BrandLogoProps) {
+  const wordmark = variant === 'wordmark';
+  const artWidth = wordmark ? 1166 : 262;
   return (
-    <View style={styles.row} testID={testID}>
-      <Image
-        source={SOURCES[variant]}
-        style={{ height, width: height * ASPECT[variant] }}
-        contentFit="contain"
-        transition={0}
-        accessible
-        accessibilityRole="image"
-        accessibilityLabel={BRAND_NAME}
-        alt={BRAND_NAME}
-      />
+    <View accessible accessibilityRole="image" accessibilityLabel={BRAND_NAME} testID={testID}>
+      <Svg width={Math.round(height * artWidth / 280)} height={height} viewBox={`220 252 ${artWidth} 280`}>
+        <G fill={colors.primary}>
+          <Path d="M480 296L454.9 314.8C436.7 295.2 412.6 285.3 387.1 285.3C337.9 285.3 297.3 323.1 297.3 370.2C297.3 416.7 335.6 452.9 381.4 452.9C399.8 452.9 415.6 447.9 429.8 437.6L449.7 458.7C430.8 475 408.3 483.8 381.6 483.8C316.4 483.8 265.4 434.6 265.4 370.7C265.4 306 318.3 254.1 386.8 254.1C424.2 254.1 457.7 269.9 480 296Z" />
+          <Path d="M275 452.1Q279.4 450 285.7 449.8L302.2 465.6Q305.9 470.7 301.8 476.2L254.8 525Q249.3 531.1 240.6 530.5C225.2 530.3 217.5 513.4 227 501.9Z" />
+        </G>
+        <Path fill={colors.slateLight} d="M320.2 402.9C306.7 379.5 309.1 348.9 326 327.1C348.4 298.7 392.1 288.8 424.9 310.6C365.3 303.7 322.3 351.8 320.2 402.9Z" />
+        {wordmark && (
+          <>
+            <G fill={colors.primary}>
+              <Path fillRule="evenodd" d="M504.5 338.9C540.6 338.9 568.3 364.6 568.3 399.7C568.3 434.4 540.6 460.4 504.4 460.4C467.7 460.4 439.8 434.4 439.8 399.7C439.8 364.7 467.7 338.9 504.5 338.9ZM504.3 364.1C484 364.1 469.2 378.9 469.2 399.6C469.2 420.6 484.1 435.5 504.3 435.5C524.5 435.5 539.2 420.5 539.2 399.6C539.2 378.8 524.5 364.1 504.3 364.1Z" />
+              <Path d={letterN} />
+              <Path d={letterS} />
+              <Path d="M803 341.9H832.2V403.3C832.2 423.5 843.2 434 860.4 434C878.1 434 888.3 423 888.3 403.3V341.9H917.2V403.5C917.2 439.7 895.5 460.2 860.4 460.2C825.5 460.2 803 439.7 803 403.5Z" />
+            </G>
+            <G fill={colors.slate}>
+              <Path d="M932 295.8H962.2V431.6H1036.2V457.5H932Z" />
+              <Path fillRule="evenodd" d="M1154.7 409.2H1062.6C1066.1 425.6 1078.5 436.1 1097.4 436.1C1110.2 436.1 1120.4 431.7 1129.1 422.8L1146.4 439.3C1134.8 452.6 1118.1 460.1 1096.5 460.1C1059.6 460.1 1032.5 434.8 1032.5 399.9C1032.5 365.2 1059.1 339.5 1094.4 339.5C1131.2 339.5 1155 364.8 1155 400.5ZM1062.5 389.1H1127.3C1123.8 373.4 1111.7 363.9 1094.9 363.9C1078.1 363.9 1066.2 373.6 1062.5 389.1Z" />
+              <Path d={letterN} transform="translate(586.2)" />
+              <Path d={letterS} transform="translate(588)" />
+            </G>
+          </>
+        )}
+      </Svg>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  row: { alignItems: 'center', justifyContent: 'center' },
-});

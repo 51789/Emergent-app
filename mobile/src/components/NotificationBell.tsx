@@ -47,10 +47,10 @@ export function NotificationBell({ count, onPress }: NotificationBellProps) {
       style={({ pressed }) => [styles.button, pressed && styles.pressed]}
       testID="notification-bell"
     >
-      <Animated.View style={{ transform: [{ rotate }] }}>
+      <Animated.View style={hasUnseen ? { transform: [{ rotate }] } : undefined}>
         <MaterialIcons
           name={hasUnseen ? 'notifications-active' : 'notifications-none'}
-          size={26}
+          size={24}
           color={hasUnseen ? colors.alert : colors.text}
         />
       </Animated.View>

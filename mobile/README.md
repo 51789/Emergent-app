@@ -125,8 +125,8 @@ eas submit --profile production --platform ios      # / android
    Upload an FCM V1 credential and an Apple push key with `eas credentials`. Pushes carry
    `data = { type: "new_results", search_id, category, count }`: a tap opens `/search/<search_id>` (or Notifications).
 5. **Backend URL** per environment (`EXPO_PUBLIC_API_URL`) and CORS for the web origin.
-6. **Brand assets.** The official logo lives in `assets/images/brand/` (`logo-wordmark.png` is used by the app header,
-   `logo-full.png` / `logo-mark.png` are kept for marketing use) with the original in `assets/brand-source/`. The store icon,
+6. **Brand assets.** The app renders the vector wordmark in `src/components/BrandLogo.tsx`. Marketing PNGs live
+   in `assets/images/brand/` with the original artwork in `assets/brand-source/`. The store icon,
    adaptive icon, notification icon, splash and favicon in `assets/images/` were derived from it. Replace them all if the logo changes.
 7. **Store listings, privacy policy and permission texts.** Microphone / speech-recognition usage strings are set in
    `app.config.ts` (Italian).

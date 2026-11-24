@@ -22,7 +22,7 @@ interface BrandHeaderProps {
  * `[left action]  Consulens (always centred)  [right action]`.
  * The logo is absolutely centred so it stays centred whatever the side slots contain.
  */
-export function BrandHeader({ onBack, left, right, logoHeight = 28, style }: BrandHeaderProps) {
+export function BrandHeader({ onBack, left, right, logoHeight = 32, style }: BrandHeaderProps) {
   const { t } = useTranslation();
 
   return (

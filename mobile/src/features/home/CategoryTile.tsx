@@ -35,7 +35,7 @@ export function CategoryTile({ category, active, unseen, onPress }: CategoryTile
           </AppText>
         </View>
       ) : null}
-      <MaterialIcons name={category.icon} size={32} color={active > 0 ? colors.primary : colors.slate} />
+      <MaterialIcons name={category.icon} size={36} color={active > 0 ? colors.primary : colors.textMuted} />
       <AppText variant="captionStrong" align="center" style={styles.label} numberOfLines={3}>
         {label}
       </AppText>
