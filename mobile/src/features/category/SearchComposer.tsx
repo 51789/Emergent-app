@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
     flex: 1,
     maxHeight: 120,
     fontFamily: fonts.regular,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.text,
     paddingVertical: 8,
     ...webNoOutline,

@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="consulens-build" content="__CONSULENS_BUILD__">
     <meta name="theme-color" content="#0C2038">
     <meta name="apple-mobile-web-app-title" content="Consulens">
     <meta name="description" content="Salva le tue ricerche e segui i nuovi risultati con Consulens.">
@@ -19,7 +20,14 @@
       }
       html[data-standalone] #root {
         box-sizing: border-box;
+        width: min(100%, var(--visible-width, 100%));
         padding-bottom: env(safe-area-inset-bottom, 0px);
+      }
+      html[data-restored-zoom] #root {
+        width: var(--layout-width);
+        height: var(--layout-height);
+        transform-origin: top left;
+        transform: translate(var(--viewport-x), var(--viewport-y)) scale(var(--restore-scale));
       }
     </style>
     <script>
@@ -28,22 +36,104 @@
 
         const root = document.documentElement;
         const viewport = window.visualViewport;
+        const meta = document.querySelector('meta[name="viewport"]');
+        const normalViewport = meta.content;
         root.setAttribute('data-standalone', '');
+        let userPinched = false;
+        let lastScale = 1;
+        let restoring = false;
 
         function fitToViewport() {
-          // Pinch zoom should magnify the app without changing its layout.
-          if (viewport && viewport.scale !== 1) return;
-          const height = viewport ? viewport.height : window.innerHeight;
+          // Keep the layout still while the user magnifies it. An already zoomed
+          // viewport at launch has no such gesture and must still fit the tabs.
+          const scale = viewport?.scale || 1;
+          if (lastScale > 1.01 && scale <= 1.01) userPinched = false;
+          lastScale = scale;
+          if (userPinched && scale > 1.01) return;
+          const height = viewport?.height || window.innerHeight;
+          const width = viewport?.width || window.innerWidth;
           if (height > 0) root.style.setProperty('--visible-height', height + 'px');
+          if (width > 0) root.style.setProperty('--visible-width', width + 'px');
+          // Some installed browsers keep the restored page scale even after
+          // pageshow. Keep controls at their normal physical size in that case.
+          root.toggleAttribute('data-restored-zoom', scale > 1.01);
+          if (scale > 1.01) {
+            root.style.setProperty('--layout-width', width * scale + 'px');
+            root.style.setProperty('--layout-height', height * scale + 'px');
+            root.style.setProperty('--restore-scale', String(1 / scale));
+            root.style.setProperty('--viewport-x', viewport.offsetLeft + 'px');
+            root.style.setProperty('--viewport-y', viewport.offsetTop + 'px');
+          }
         }
 
-        fitToViewport();
+        function onShow() {
+          fitToViewport();
+          if (!navigator.standalone || !viewport || viewport.scale <= 1.01 ||
+              userPinched || restoring || document.activeElement?.matches('input, textarea, [contenteditable=true]')) return;
+          // WebKit can restore the scale left over from a focused field. Request
+          // the initial scale for this frame only, then return pinch control.
+          restoring = true;
+          meta.content = normalViewport + ', maximum-scale=1';
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            meta.content = normalViewport;
+            restoring = false;
+            fitToViewport();
+          }));
+        }
+
+        window.addEventListener('touchstart', event => {
+          if (event.touches.length > 1) userPinched = true;
+        }, { passive: true });
+        window.addEventListener('gesturestart', () => { userPinched = true; }, { passive: true });
+        window.addEventListener('touchend', event => {
+          if (event.touches.length < 2 && (viewport?.scale || 1) <= 1.01) userPinched = false;
+        }, { passive: true });
         viewport?.addEventListener('resize', fitToViewport);
+        viewport?.addEventListener('scroll', fitToViewport);
         window.addEventListener('resize', fitToViewport);
-        window.addEventListener('pageshow', fitToViewport);
+        window.addEventListener('pageshow', onShow);
         document.addEventListener('visibilitychange', () => {
-          if (!document.hidden) fitToViewport();
+          if (!document.hidden) onShow();
         });
+        onShow();
+      })();
+    </script>
+    <script>
+      (() => {
+        const build = document.querySelector('meta[name="consulens-build"]').content;
+        if (!/^[0-9a-f]{16}$/.test(build)) return;
+
+        if (window.isSecureContext && 'serviceWorker' in navigator) {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js?build=' + build, { updateViaCache: 'none' })
+              .catch(() => console.warn('Offline navigation is unavailable.'));
+          });
+        }
+        if (!document.documentElement.hasAttribute('data-standalone')) return;
+
+        let checking = false;
+        function canReload() {
+          // Editors can hold drafts even after their text field has been cleared.
+          const tab = ['/', '/favorites', '/notifications', '/settings'].includes(location.pathname);
+          return tab && !document.hidden && !document.querySelector('[role=dialog], [aria-modal=true]') &&
+            ![...document.querySelectorAll('input, textarea')].some(el => el.value || el === document.activeElement);
+        }
+        async function checkRelease() {
+          if (checking || !canReload()) return;
+          checking = true;
+          try {
+            const response = await fetch('/pwa-version', { cache: 'no-store' });
+            if (!response.ok) return;
+            const latest = (await response.text()).trim();
+            if (/^[0-9a-f]{16}$/.test(latest) && latest !== build && canReload()) location.reload();
+          } catch {
+            // Continue using the open app when offline.
+          } finally {
+            checking = false;
+          }
+        }
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) checkRelease(); });
+        window.addEventListener('pageshow', event => { if (event.persisted) checkRelease(); });
       })();
     </script>
   </head>

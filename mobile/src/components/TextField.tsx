@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontFamily: fonts.regular,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.text,
     paddingVertical: 10,
     // The row draws the navy focus ring; hide the browser outline on web.

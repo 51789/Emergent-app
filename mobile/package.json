@@ -55,7 +55,7 @@
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
     "test": "jest",
-    "export:web": "expo export --platform web",
+    "export:web": "node scripts/export-web.cjs",
     "doctor": "expo-doctor"
   },
   "private": true,
